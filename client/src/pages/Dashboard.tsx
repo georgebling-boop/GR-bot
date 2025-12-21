@@ -5,6 +5,8 @@ import { useFreqtradeDashboard } from "@/hooks/useFreqtradeData";
 import { useSystemHealth } from "@/hooks/useSystemHealth";
 import SystemHealthMonitor from "@/components/SystemHealthMonitor";
 import StrategyComparison from "@/components/StrategyComparison";
+import EquityCurveChart from "@/components/EquityCurveChart";
+import TradeFilterPanel from "@/components/TradeFilterPanel";
 import { toast } from "sonner";
 
 /**
@@ -473,6 +475,16 @@ export default function Dashboard() {
             System Health & Performance
           </h2>
           <SystemHealthMonitor />
+        </section>
+
+        {/* Equity Curve Chart */}
+        <section>
+          <EquityCurveChart />
+        </section>
+
+        {/* Trade Filtering & Export */}
+        <section>
+          <TradeFilterPanel trades={openTrades || []} />
         </section>
 
         {/* Strategy Comparison */}

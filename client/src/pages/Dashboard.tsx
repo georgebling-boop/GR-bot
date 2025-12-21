@@ -1,14 +1,15 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Zap, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, Zap, Target, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useFreqtradeDashboard } from "@/hooks/useFreqtradeData";
+import { toast } from "sonner";
 
 /**
  * Dashboard - Main trading bot monitoring interface
- * Design: Modern Minimalist with Data Emphasis
- * - Dark background with emerald accents
- * - Data-first layout with clear hierarchy
- * - Real-time metrics and status indicators
+ * Integrated with Freqtrade API via tRPC
+ * Real-time polling: 5s for trades, 10s for metrics, 30s for history
  */
 
 interface MetricProps {
@@ -17,15 +18,25 @@ interface MetricProps {
   unit?: string;
   trend?: "up" | "down" | "neutral";
   subtext?: string;
+  loading?: boolean;
 }
 
-function MetricCard({ label, value, unit, trend, subtext }: MetricProps) {
+function MetricCard({
+  label,
+  value,
+  unit,
+  trend,
+  subtext,
+  loading,
+}: MetricProps) {
   return (
     <Card className="metric-card">
       <div className="space-y-2">
         <p className="metric-label">{label}</p>
         <div className="flex items-baseline gap-2">
-          <span className="metric-value">{value}</span>
+          <span className={`metric-value ${loading ? "animate-pulse" : ""}`}>
+            {loading ? "..." : value}
+          </span>
           {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
         </div>
         {trend && (
@@ -57,17 +68,30 @@ function MetricCard({ label, value, unit, trend, subtext }: MetricProps) {
 
 export default function Dashboard() {
   const [activeNav, setActiveNav] = useState("overview");
+  const {
+    dashboard,
+    dashboardLoading,
+    dashboardError,
+    openTrades,
+    performance,
+    status,
+    isHealthy,
+    refresh,
+  } = useFreqtradeDashboard(5000); // Poll every 5 seconds
 
-  // Mock data - in production, this would come from Freqtrade REST API
-  const mockData = {
-    botStatus: "Running",
-    totalProfit: 1247.53,
-    profitPercent: 12.47,
-    winRate: 74.5,
-    totalTrades: 143,
-    openTrades: 5,
-    maxDrawdown: 8.2,
-    sharpeRatio: 2.34,
+  const handleRefresh = async () => {
+    await refresh();
+    toast.success("Dashboard refreshed");
+  };
+
+  const botStatus = status?.state || "disconnected";
+  const isConnected = isHealthy && botStatus === "running";
+
+  // Use dashboard data if available, otherwise use individual queries
+  const displayData = dashboard || {
+    status: status,
+    openTrades: openTrades,
+    performance: performance,
   };
 
   return (
@@ -85,15 +109,53 @@ export default function Dashboard() {
                   Real-time bot performance and metrics
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="status-indicator status-active" />
-                <span className="text-sm font-medium text-accent">
-                  {mockData.botStatus}
-                </span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`status-indicator ${
+                      isConnected ? "status-active" : "status-inactive"
+                    }`}
+                  />
+                  <span className="text-sm font-medium">
+                    {isConnected ? (
+                      <span className="text-accent">Connected</span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Disconnected
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={dashboardLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw
+                    size={16}
+                    className={dashboardLoading ? "animate-spin" : ""}
+                  />
+                  Refresh
+                </Button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Error State */}
+        {dashboardError && (
+          <div className="container py-4">
+            <Card className="metric-card border-destructive/50 bg-destructive/5">
+              <p className="text-destructive text-sm">
+                <strong>Connection Error:</strong> Unable to connect to Freqtrade
+                bot. Make sure the bot is running on{" "}
+                {process.env.VITE_FREQTRADE_URL || "http://localhost:8080"}
+              </p>
+            </Card>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="container py-8 space-y-8">
@@ -105,27 +167,45 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricCard
                 label="Total Profit"
-                value={`$${mockData.totalProfit.toFixed(2)}`}
-                trend="up"
-                subtext={`+${mockData.profitPercent}%`}
+                value={`$${(performance?.total_profit || 0).toFixed(2)}`}
+                trend={
+                  (performance?.total_profit || 0) > 0 ? "up" : "down"
+                }
+                subtext={`${(performance?.total_profit_percent || 0).toFixed(2)}%`}
+                loading={dashboardLoading}
               />
               <MetricCard
                 label="Win Rate"
-                value={`${mockData.winRate}%`}
-                trend="up"
-                subtext="Above target"
+                value={`${(performance?.win_rate || 0).toFixed(1)}%`}
+                trend={
+                  (performance?.win_rate || 0) > 50 ? "up" : "down"
+                }
+                subtext={
+                  (performance?.win_rate || 0) > 50
+                    ? "Above target"
+                    : "Below target"
+                }
+                loading={dashboardLoading}
               />
               <MetricCard
                 label="Open Trades"
-                value={mockData.openTrades}
+                value={performance?.open_trades || 0}
                 unit="active"
                 trend="neutral"
+                loading={dashboardLoading}
               />
               <MetricCard
                 label="Max Drawdown"
-                value={`${mockData.maxDrawdown}%`}
-                trend="down"
-                subtext="Within limits"
+                value={`${(performance?.max_drawdown || 0).toFixed(2)}%`}
+                trend={
+                  (performance?.max_drawdown || 0) < 10 ? "up" : "down"
+                }
+                subtext={
+                  (performance?.max_drawdown || 0) < 10
+                    ? "Within limits"
+                    : "High risk"
+                }
+                loading={dashboardLoading}
               />
             </div>
           </section>
@@ -138,15 +218,17 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <MetricCard
                 label="Total Trades"
-                value={mockData.totalTrades}
+                value={performance?.total_trades || 0}
                 trend="up"
-                subtext="This month"
+                subtext="All time"
+                loading={dashboardLoading}
               />
               <MetricCard
-                label="Sharpe Ratio"
-                value={mockData.sharpeRatio}
-                trend="up"
-                subtext="Risk-adjusted return"
+                label="Closed Trades"
+                value={performance?.closed_trades || 0}
+                trend="neutral"
+                subtext={`${((performance?.closed_trades || 0) / (performance?.total_trades || 1) * 100).toFixed(1)}% closed`}
+                loading={dashboardLoading}
               />
               <Card className="metric-card flex items-center justify-center min-h-32">
                 <div className="text-center space-y-2">
@@ -159,61 +241,59 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Recent Activity */}
-          <section>
-            <h2 className="text-xl font-bold text-foreground mb-4">
-              Recent Trades
-            </h2>
-            <Card className="metric-card">
-              <div className="space-y-4">
-                {[
-                  {
-                    pair: "BTC/USDT",
-                    entry: 42150.25,
-                    current: 42380.5,
-                    profit: "+0.54%",
-                    time: "2 hours ago",
-                  },
-                  {
-                    pair: "ETH/USDT",
-                    entry: 2280.75,
-                    current: 2295.2,
-                    profit: "+0.63%",
-                    time: "1 hour ago",
-                  },
-                  {
-                    pair: "SOL/USDT",
-                    entry: 198.5,
-                    current: 201.25,
-                    profit: "+1.39%",
-                    time: "45 min ago",
-                  },
-                ].map((trade, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between pb-4 border-b border-border last:border-b-0 last:pb-0"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-mono font-semibold text-foreground">
-                        {trade.pair}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Entry: ${trade.entry}
-                      </p>
+          {/* Recent Trades */}
+          {openTrades && openTrades.length > 0 && (
+            <section>
+              <h2 className="text-xl font-bold text-foreground mb-4">
+                Open Trades ({openTrades.length})
+              </h2>
+              <Card className="metric-card">
+                <div className="space-y-4">
+                  {openTrades.slice(0, 5).map((trade) => (
+                    <div
+                      key={trade.trade_id}
+                      className="flex items-center justify-between pb-4 border-b border-border last:border-b-0 last:pb-0"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-mono font-semibold text-foreground">
+                          {trade.pair}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Entry: ${trade.open_rate.toFixed(8)}
+                        </p>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p
+                          className={`font-mono font-semibold ${
+                            trade.profit_ratio > 0
+                              ? "text-accent"
+                              : "text-destructive"
+                          }`}
+                        >
+                          {trade.profit_ratio > 0 ? "+" : ""}
+                          {(trade.profit_ratio * 100).toFixed(2)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Current: ${trade.current_rate.toFixed(8)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right space-y-1">
-                      <p className="text-accent font-mono font-semibold">
-                        {trade.profit}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {trade.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </section>
+                  ))}
+                </div>
+              </Card>
+            </section>
+          )}
+
+          {/* No Trades State */}
+          {!dashboardLoading && (!openTrades || openTrades.length === 0) && (
+            <section>
+              <Card className="metric-card text-center py-8">
+                <p className="text-muted-foreground">
+                  No open trades at the moment
+                </p>
+              </Card>
+            </section>
+          )}
         </div>
       </div>
     </DashboardLayout>

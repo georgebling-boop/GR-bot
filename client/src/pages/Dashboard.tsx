@@ -1,10 +1,10 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import SystemHealthMonitor from "@/components/SystemHealthMonitor";
-import OpenTradesPage from "./OpenTradesPage";
-import TradeHistoryPage from "./TradeHistoryPage";
-import PerformancePage from "./PerformancePage";
-import SettingsPage from "./SettingsPage";
+import { OpenTradesPageContent } from "./OpenTradesPage";
+import { TradeHistoryPageContent } from "./TradeHistoryPage";
+import { PerformancePageContent } from "./PerformancePage";
+import { SettingsPageContent } from "./SettingsPage";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Zap, Target, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,17 +76,29 @@ export default function Dashboard() {
 
   // Route to Open Trades page
   if (activeNav === "trades") {
-    return <OpenTradesPage />;
+    return (
+      <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
+        <OpenTradesPageContent />
+      </DashboardLayout>
+    );
   }
 
   // Route to Trade History page
   if (activeNav === "history") {
-    return <TradeHistoryPage />;
+    return (
+      <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
+        <TradeHistoryPageContent />
+      </DashboardLayout>
+    );
   }
 
   // Route to Performance page
   if (activeNav === "performance") {
-    return <PerformancePage />;
+    return (
+      <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
+        <PerformancePageContent />
+      </DashboardLayout>
+    );
   }
 
   // Route to System Health page
@@ -121,7 +133,11 @@ export default function Dashboard() {
 
   // Route to Settings page
   if (activeNav === "settings") {
-    return <SettingsPage />;
+    return (
+      <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
+        <SettingsPageContent />
+      </DashboardLayout>
+    );
   }
 
   // Default: Overview page

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import SystemHealthMonitor from "@/components/SystemHealthMonitor";
 import { OpenTradesPageContent } from "./OpenTradesPage";
 import { TradeHistoryPageContent } from "./TradeHistoryPage";
 import { PerformancePageContent } from "./PerformancePage";
 import { SettingsPageContent } from "./SettingsPage";
+import { SystemHealthPageContent } from "./SystemHealthPage";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Zap, Target, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -105,28 +105,7 @@ export default function Dashboard() {
   if (activeNav === "health") {
     return (
       <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
-        <div className="h-full overflow-auto bg-gradient-to-b from-background to-background">
-          {/* Header */}
-          <div className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-10">
-            <div className="container py-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">
-                    System Health
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    Real-time monitoring of bot performance and system resources
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="container py-8">
-            <SystemHealthMonitor />
-          </div>
-        </div>
+        <SystemHealthPageContent />
       </DashboardLayout>
     );
   }

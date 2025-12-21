@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import SystemHealthMonitor from "@/components/SystemHealthMonitor";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Zap, Target, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,36 @@ function MetricCard({
 
 export default function Dashboard() {
   const [activeNav, setActiveNav] = useState("overview");
+
+  // Render System Health page
+  if (activeNav === "health") {
+    return (
+      <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
+        <div className="h-full overflow-auto bg-gradient-to-b from-background to-background">
+          {/* Header */}
+          <div className="sticky top-0 bg-background/95 backdrop-blur border-b border-border z-10">
+            <div className="container py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">
+                    System Health
+                  </h1>
+                  <p className="text-muted-foreground mt-1">
+                    Real-time monitoring of bot performance and system resources
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="container py-8">
+            <SystemHealthMonitor />
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
   const {
     dashboard,
     dashboardLoading,
@@ -94,6 +125,7 @@ export default function Dashboard() {
     performance: performance,
   };
 
+  // Render Overview page (default)
   return (
     <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
       <div className="h-full overflow-auto bg-gradient-to-b from-background to-background">

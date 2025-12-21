@@ -20,6 +20,7 @@ export default function DashboardLayout({
     { id: "trades", label: "Open Trades", icon: "💱" },
     { id: "history", label: "Trade History", icon: "📜" },
     { id: "performance", label: "Performance", icon: "📈" },
+    { id: "health", label: "System Health", icon: "🏥" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 

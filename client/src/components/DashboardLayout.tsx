@@ -36,7 +36,7 @@ export default function DashboardLayout({
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
           {sidebarOpen && (
             <h1 className="text-lg font-bold text-sidebar-foreground">
-              Freqtrade
+              George's Trade Bot
             </h1>
           )}
           <Button

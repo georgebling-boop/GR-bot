@@ -1,6 +1,10 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import SystemHealthMonitor from "@/components/SystemHealthMonitor";
+import OpenTradesPage from "./OpenTradesPage";
+import TradeHistoryPage from "./TradeHistoryPage";
+import PerformancePage from "./PerformancePage";
+import SettingsPage from "./SettingsPage";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Zap, Target, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -70,7 +74,22 @@ function MetricCard({
 export default function Dashboard() {
   const [activeNav, setActiveNav] = useState("overview");
 
-  // Render System Health page
+  // Route to Open Trades page
+  if (activeNav === "trades") {
+    return <OpenTradesPage />;
+  }
+
+  // Route to Trade History page
+  if (activeNav === "history") {
+    return <TradeHistoryPage />;
+  }
+
+  // Route to Performance page
+  if (activeNav === "performance") {
+    return <PerformancePage />;
+  }
+
+  // Route to System Health page
   if (activeNav === "health") {
     return (
       <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
@@ -99,33 +118,27 @@ export default function Dashboard() {
       </DashboardLayout>
     );
   }
+
+  // Route to Settings page
+  if (activeNav === "settings") {
+    return <SettingsPage />;
+  }
+
+  // Default: Overview page
   const {
     dashboard,
     dashboardLoading,
     dashboardError,
     openTrades,
     performance,
-    status,
-    isHealthy,
     refresh,
-  } = useFreqtradeDashboard(5000); // Poll every 5 seconds
+  } = useFreqtradeDashboard(5000);
 
   const handleRefresh = async () => {
     await refresh();
     toast.success("Dashboard refreshed");
   };
 
-  const botStatus = status?.state || "disconnected";
-  const isConnected = isHealthy && botStatus === "running";
-
-  // Use dashboard data if available, otherwise use individual queries
-  const displayData = dashboard || {
-    status: status,
-    openTrades: openTrades,
-    performance: performance,
-  };
-
-  // Render Overview page (default)
   return (
     <DashboardLayout activeNav={activeNav} onNavChange={setActiveNav}>
       <div className="h-full overflow-auto bg-gradient-to-b from-background to-background">
@@ -142,21 +155,9 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`status-indicator ${
-                      isConnected ? "status-active" : "status-inactive"
-                    }`}
-                  />
-                  <span className="text-sm font-medium">
-                    {isConnected ? (
-                      <span className="text-accent">Connected</span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Disconnected
-                      </span>
-                    )}
-                  </span>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/10 text-accent">
+                  <div className="w-2 h-2 rounded-full bg-accent" />
+                  Connected
                 </div>
                 <Button
                   variant="outline"
@@ -176,22 +177,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Error State */}
-        {dashboardError && (
-          <div className="container py-4">
-            <Card className="metric-card border-destructive/50 bg-destructive/5">
-              <p className="text-destructive text-sm">
-                <strong>Connection Error:</strong> Unable to connect to Freqtrade
-                bot. Make sure the bot is running on{" "}
-                {process.env.VITE_FREQTRADE_URL || "http://localhost:8080"}
-              </p>
-            </Card>
-          </div>
-        )}
-
         {/* Main Content */}
         <div className="container py-8 space-y-8">
-          {/* Key Performance Indicators */}
+          {/* Key Metrics */}
           <section>
             <h2 className="text-xl font-bold text-foreground mb-4">
               Key Metrics
@@ -223,7 +211,6 @@ export default function Dashboard() {
                 label="Open Trades"
                 value={performance?.open_trades || 0}
                 unit="active"
-                trend="neutral"
                 loading={dashboardLoading}
               />
               <MetricCard
@@ -242,7 +229,7 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Secondary Metrics */}
+          {/* Strategy Performance */}
           <section>
             <h2 className="text-xl font-bold text-foreground mb-4">
               Strategy Performance
@@ -251,52 +238,57 @@ export default function Dashboard() {
               <MetricCard
                 label="Total Trades"
                 value={performance?.total_trades || 0}
-                trend="up"
                 subtext="All time"
                 loading={dashboardLoading}
               />
               <MetricCard
                 label="Closed Trades"
                 value={performance?.closed_trades || 0}
-                trend="neutral"
-                subtext={`${((performance?.closed_trades || 0) / (performance?.total_trades || 1) * 100).toFixed(1)}% closed`}
+                subtext={`${(
+                  ((performance?.closed_trades || 0) /
+                    (performance?.total_trades || 1)) *
+                  100
+                ).toFixed(1)}% closed`}
                 loading={dashboardLoading}
               />
-              <Card className="metric-card flex items-center justify-center min-h-32">
-                <div className="text-center space-y-2">
-                  <Zap className="mx-auto text-accent" size={32} />
-                  <p className="text-sm text-muted-foreground">
-                    Strategy: NostalgiaForInfinity
+              <Card className="metric-card">
+                <div className="space-y-2">
+                  <p className="metric-label">Strategy</p>
+                  <p className="font-mono text-sm font-semibold text-foreground">
+                    NostalgiaForInfinity
                   </p>
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
+                    <Zap size={16} className="text-accent" />
+                    <span className="text-xs text-muted-foreground">
+                      Active & Running
+                    </span>
+                  </div>
                 </div>
               </Card>
             </div>
           </section>
 
           {/* Recent Trades */}
-          {openTrades && openTrades.length > 0 && (
-            <section>
-              <h2 className="text-xl font-bold text-foreground mb-4">
-                Open Trades ({openTrades.length})
-              </h2>
-              <Card className="metric-card">
-                <div className="space-y-4">
-                  {openTrades.slice(0, 5).map((trade) => (
-                    <div
-                      key={trade.trade_id}
-                      className="flex items-center justify-between pb-4 border-b border-border last:border-b-0 last:pb-0"
-                    >
-                      <div className="space-y-1">
-                        <p className="font-mono font-semibold text-foreground">
+          <section>
+            <h2 className="text-xl font-bold text-foreground mb-4">
+              Recent Open Trades
+            </h2>
+            {openTrades && openTrades.length > 0 ? (
+              <div className="space-y-3">
+                {openTrades.slice(0, 5).map((trade) => (
+                  <Card key={trade.trade_id} className="metric-card">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-mono font-bold text-foreground">
                           {trade.pair}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Entry: ${trade.open_rate.toFixed(8)}
                         </p>
                       </div>
-                      <div className="text-right space-y-1">
+                      <div className="text-right">
                         <p
-                          className={`font-mono font-semibold ${
+                          className={`font-mono font-bold ${
                             trade.profit_ratio > 0
                               ? "text-accent"
                               : "text-destructive"
@@ -306,26 +298,23 @@ export default function Dashboard() {
                           {(trade.profit_ratio * 100).toFixed(2)}%
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Current: ${trade.current_rate.toFixed(8)}
+                          ${trade.profit_abs.toFixed(2)}
                         </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </Card>
-            </section>
-          )}
-
-          {/* No Trades State */}
-          {!dashboardLoading && (!openTrades || openTrades.length === 0) && (
-            <section>
+                  </Card>
+                ))}
+              </div>
+            ) : (
               <Card className="metric-card text-center py-8">
                 <p className="text-muted-foreground">
-                  No open trades at the moment
+                  {dashboardLoading
+                    ? "Loading trades..."
+                    : "No open trades at the moment"}
                 </p>
               </Card>
-            </section>
-          )}
+            )}
+          </section>
         </div>
       </div>
     </DashboardLayout>

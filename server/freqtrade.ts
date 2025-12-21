@@ -268,9 +268,9 @@ export function initFreqtradeClient(config: FreqtradeConfig): FreqtradeClient {
 export function getFreqtradeClient(): FreqtradeClient {
   if (!freqtradeClient) {
     // Default configuration - can be overridden via environment variables
-    const baseUrl = process.env.FREQTRADE_URL || "http://localhost:8080";
-    const username = process.env.FREQTRADE_USERNAME;
-    const password = process.env.FREQTRADE_PASSWORD;
+    const baseUrl = process.env.FREQTRADE_API_URL || "http://localhost:8080";
+    const username = process.env.FREQTRADE_API_USERNAME;
+    const password = process.env.FREQTRADE_API_PASSWORD;
 
     freqtradeClient = new FreqtradeClient({
       baseUrl,

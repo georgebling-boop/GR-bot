@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useFreqtradeDashboard } from "@/hooks/useFreqtradeData";
 import { useSystemHealth } from "@/hooks/useSystemHealth";
 import SystemHealthMonitor from "@/components/SystemHealthMonitor";
+import StrategyComparison from "@/components/StrategyComparison";
 import { toast } from "sonner";
 
 /**
@@ -472,6 +473,14 @@ export default function Dashboard() {
             System Health & Performance
           </h2>
           <SystemHealthMonitor />
+        </section>
+
+        {/* Strategy Comparison */}
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">
+            Strategy Performance Comparison
+          </h2>
+          <StrategyComparison />
         </section>
 
         {/* Quick Actions */}

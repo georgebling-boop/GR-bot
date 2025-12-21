@@ -7,6 +7,7 @@ import SystemHealthMonitor from "@/components/SystemHealthMonitor";
 import StrategyComparison from "@/components/StrategyComparison";
 import EquityCurveChart from "@/components/EquityCurveChart";
 import TradeFilterPanel from "@/components/TradeFilterPanel";
+import TestTradingPanel from "@/components/TestTradingPanel";
 import { toast } from "sonner";
 
 /**
@@ -493,6 +494,11 @@ export default function Dashboard() {
             Strategy Performance Comparison
           </h2>
           <StrategyComparison />
+        </section>
+
+        {/* Test Trading Simulator */}
+        <section>
+          <TestTradingPanel />
         </section>
 
         {/* Quick Actions */}

@@ -9,6 +9,7 @@ import EquityCurveChart from "@/components/EquityCurveChart";
 import TradeFilterPanel from "@/components/TradeFilterPanel";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
 import AutoTradePanel from "@/components/AutoTradePanel";
+import AutoTradingExecutorPanel from "@/components/AutoTradingExecutorPanel";
 import { toast } from "sonner";
 
 /**
@@ -500,6 +501,11 @@ export default function Dashboard() {
         {/* Live Trading Simulator */}
         <section>
           <LiveTradingPanel />
+        </section>
+
+        {/* Auto Trading Executor */}
+        <section>
+          <AutoTradingExecutorPanel />
         </section>
 
         {/* Automated Trading Signals */}

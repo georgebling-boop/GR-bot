@@ -35,6 +35,7 @@ import { BrainPersistencePanel } from "@/components/BrainPersistencePanel";
 import { NotificationsDisplay } from "@/components/NotificationsDisplay";
 import { PortfolioDisplay } from "@/components/PortfolioDisplay";
 import { CompetitionsDisplay } from "@/components/CompetitionsDisplay";
+import { HyperliquidPanel } from "@/components/HyperliquidPanel";
 
 /**
  * George's Trade Bot Dashboard
@@ -485,6 +486,11 @@ export default function Dashboard() {
               <PortfolioDisplay />
               <NotificationsDisplay />
               <CompetitionsDisplay />
+            </div>
+
+            {/* Hyperliquid Exchange Integration */}
+            <div className="col-span-1 md:col-span-2">
+              <HyperliquidPanel />
             </div>
 
             {/* Advanced Trading with Bot Health */}

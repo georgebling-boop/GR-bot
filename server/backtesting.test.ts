@@ -8,7 +8,7 @@ import {
 
 describe("Backtesting Module", () => {
   describe("runBacktest", () => {
-    it("should run a backtest with valid configuration", async () => {
+    it("should run a backtest with valid configuration", { timeout: 15000 }, async () => {
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days
       

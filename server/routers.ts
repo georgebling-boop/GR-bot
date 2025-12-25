@@ -21,6 +21,7 @@ import { backtestingRouter } from "./routers/backtesting";
 import { notificationsRouter } from "./routers/notifications";
 import { portfolioRouter } from "./routers/portfolio";
 import { competitionRouter } from "./routers/competition";
+import { hyperliquidRouter } from "./routers/hyperliquid";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -54,6 +55,7 @@ export const appRouter = router({
   notifications: notificationsRouter,
   portfolio: portfolioRouter,
   competition: competitionRouter,
+  hyperliquid: hyperliquidRouter,
 });
 
 export type AppRouter = typeof appRouter;

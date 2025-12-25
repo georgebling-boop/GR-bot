@@ -10,6 +10,7 @@ import TradeFilterPanel from "@/components/TradeFilterPanel";
 import LiveTradingPanel from "@/components/LiveTradingPanel";
 import AutoTradePanel from "@/components/AutoTradePanel";
 import AutoTradingExecutorPanel from "@/components/AutoTradingExecutorPanel";
+import RSIMACDBollingerBandsPanel from "@/components/RSIMACDBollingerBandsPanel";
 import { toast } from "sonner";
 
 /**
@@ -511,6 +512,11 @@ export default function Dashboard() {
         {/* Automated Trading Signals */}
         <section>
           <AutoTradePanel />
+        </section>
+
+        {/* RSI + MACD + Bollinger Bands Strategy */}
+        <section>
+          <RSIMACDBollingerBandsPanel />
         </section>
 
         {/* Quick Actions */}

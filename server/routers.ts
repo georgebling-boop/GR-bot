@@ -10,6 +10,7 @@ import { testTradingRouter } from "./routers/testTrading";
 import { marketDataRouter } from "./routers/marketData";
 import { autoTraderRouter } from "./routers/autoTrader";
 import { autoTradingExecutorRouter } from "./routers/autoTradingExecutor";
+import { rsiMacdBollingerBandsRouter } from "./routers/rsiMacdBollingerBands";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -32,6 +33,7 @@ export const appRouter = router({
   marketData: marketDataRouter,
   autoTrader: autoTraderRouter,
   autoTradingExecutor: autoTradingExecutorRouter,
+  rsiMacdBollingerBands: rsiMacdBollingerBandsRouter,
 });
 
 export type AppRouter = typeof appRouter;

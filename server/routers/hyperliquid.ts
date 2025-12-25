@@ -30,18 +30,24 @@ export const hyperliquidRouter = router({
   // Connect to Hyperliquid with wallet
   connect: publicProcedure
     .input(z.object({
-      privateKey: z.string().min(64, "Invalid private key"),
+      privateKey: z.string().min(1, "Private key is required"),
       useMainnet: z.boolean().optional().default(false),
     }))
     .mutation(async ({ input }) => {
+      console.log(`[Hyperliquid Router] Attempting connection, mainnet: ${input.useMainnet}`);
+      
       const success = initializeHyperliquid({
         privateKey: input.privateKey,
         useMainnet: input.useMainnet,
       });
       
+      const status = getConnectionStatus();
+      console.log(`[Hyperliquid Router] Connection result: ${success}, error: ${status.error}`);
+      
       return {
         success,
-        status: getConnectionStatus(),
+        status,
+        error: status.error,
       };
     }),
 

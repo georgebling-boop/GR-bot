@@ -85,20 +85,53 @@ export interface TradeResult {
  * Initialize Hyperliquid connection with wallet
  */
 export function initializeHyperliquid(config: HyperliquidConfig): boolean {
+  console.log("[Hyperliquid] initializeHyperliquid called");
+  console.log(`[Hyperliquid] Config received: useMainnet=${config.useMainnet}, keyLength=${config.privateKey?.length || 0}`);
+  
   try {
-    // Validate private key
-    if (!config.privateKey || config.privateKey.length < 64) {
-      lastError = "Invalid private key";
+    // Clean up the private key
+    let privateKey = config.privateKey?.trim() || "";
+    console.log(`[Hyperliquid] After trim, keyLength=${privateKey.length}`);
+    
+    // Remove any whitespace or newlines
+    privateKey = privateKey.replace(/\s/g, "");
+    console.log(`[Hyperliquid] After whitespace removal, keyLength=${privateKey.length}`);
+    
+    // Validate private key - should be 64 hex chars (without 0x) or 66 (with 0x)
+    if (!privateKey) {
+      lastError = "Private key is required";
+      console.error("[Hyperliquid] Private key is empty");
+      return false;
+    }
+    
+    // Add 0x prefix if missing
+    if (!privateKey.startsWith("0x")) {
+      privateKey = `0x${privateKey}`;
+    }
+    
+    // Check length (should be 66 with 0x prefix)
+    if (privateKey.length !== 66) {
+      lastError = `Invalid private key length: ${privateKey.length} (expected 66 with 0x prefix)`;
+      console.error(`[Hyperliquid] ${lastError}`);
+      return false;
+    }
+    
+    // Validate hex format
+    if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
+      lastError = "Invalid private key format - must be hexadecimal";
+      console.error("[Hyperliquid] Invalid hex format");
       return false;
     }
 
     // Create wallet from private key
-    const privateKey = config.privateKey.startsWith("0x") 
-      ? config.privateKey 
-      : `0x${config.privateKey}`;
-    
-    wallet = new ethers.Wallet(privateKey);
-    walletAddress = wallet.address;
+    try {
+      wallet = new ethers.Wallet(privateKey);
+      walletAddress = wallet.address;
+    } catch (walletError) {
+      lastError = `Failed to create wallet: ${walletError instanceof Error ? walletError.message : "Unknown error"}`;
+      console.error(`[Hyperliquid] ${lastError}`);
+      return false;
+    }
 
     // Set network
     IS_MAINNET = config.useMainnet || false;
@@ -107,12 +140,13 @@ export function initializeHyperliquid(config: HyperliquidConfig): boolean {
     isConnected = true;
     lastError = null;
     
-    console.log(`[Hyperliquid] Connected to ${IS_MAINNET ? "MAINNET" : "TESTNET"}`);
-    console.log(`[Hyperliquid] Wallet: ${walletAddress}`);
+    console.log(`[Hyperliquid] Successfully connected to ${IS_MAINNET ? "MAINNET" : "TESTNET"}`);
+    console.log(`[Hyperliquid] Wallet address: ${walletAddress}`);
     
     return true;
   } catch (error) {
-    lastError = error instanceof Error ? error.message : "Unknown error";
+    lastError = error instanceof Error ? error.message : "Unknown error during initialization";
+    console.error(`[Hyperliquid] Connection error: ${lastError}`);
     isConnected = false;
     return false;
   }

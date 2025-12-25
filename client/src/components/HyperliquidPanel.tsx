@@ -58,8 +58,10 @@ export function HyperliquidPanel() {
       try {
         const res = await fetch("/api/trpc/hyperliquid.getStatus");
         const data = await res.json();
-        if (data.result?.data) {
-          setStatus(data.result.data);
+        // Handle superjson response structure: data.result.data.json
+        const statusData = data.result?.data?.json || data.result?.data;
+        if (statusData) {
+          setStatus(statusData);
         }
       } catch (err) {
         console.error("Failed to fetch status:", err);
@@ -87,9 +89,14 @@ export function HyperliquidPanel() {
         const pricesData = await pricesRes.json();
         const ordersData = await ordersRes.json();
 
-        if (accountData.result?.data) setAccountState(accountData.result.data);
-        if (pricesData.result?.data) setPrices(pricesData.result.data);
-        if (ordersData.result?.data) setOpenOrders(ordersData.result.data);
+        // Handle superjson response structure: data.result.data.json
+        const account = accountData.result?.data?.json || accountData.result?.data;
+        const prices = pricesData.result?.data?.json || pricesData.result?.data;
+        const orders = ordersData.result?.data?.json || ordersData.result?.data;
+
+        if (account) setAccountState(account);
+        if (prices) setPrices(prices);
+        if (orders) setOpenOrders(orders);
       } catch (err) {
         console.error("Failed to fetch account data:", err);
       }
@@ -101,29 +108,59 @@ export function HyperliquidPanel() {
   }, [status?.connected]);
 
   const handleConnect = async () => {
-    if (!privateKey) return;
+    if (!privateKey) {
+      setError("Please enter your private key");
+      return;
+    }
+    
+    // Basic validation
+    const cleanKey = privateKey.trim().replace(/\s/g, "");
+    if (cleanKey.length < 64) {
+      setError(`Private key too short (${cleanKey.length} chars). Expected 64 or 66 characters.`);
+      return;
+    }
+    
     setIsConnecting(true);
     setError(null);
 
     try {
+      console.log("Connecting to Hyperliquid...", { useMainnet, keyLength: cleanKey.length });
+      
       const res = await fetch("/api/trpc/hyperliquid.connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json: { privateKey, useMainnet } }),
+        body: JSON.stringify({ json: { privateKey: cleanKey, useMainnet } }),
       });
-      const data = await res.json();
       
-      if (data.result?.data?.success) {
+      if (!res.ok) {
+        setError(`Server error: ${res.status} ${res.statusText}`);
+        return;
+      }
+      
+      const data = await res.json();
+      console.log("Connection response:", data);
+      
+      // Handle superjson response structure: data.result.data.json
+      const result = data.result?.data?.json || data.result?.data;
+      
+      if (result?.success) {
         setPrivateKey("");
+        setError(null);
         // Refresh status
         const statusRes = await fetch("/api/trpc/hyperliquid.getStatus");
         const statusData = await statusRes.json();
-        if (statusData.result?.data) setStatus(statusData.result.data);
+        const newStatus = statusData.result?.data?.json || statusData.result?.data;
+        if (newStatus) setStatus(newStatus);
       } else {
-        setError(data.result?.data?.error || "Failed to connect");
+        const errorMsg = result?.error || 
+                         result?.status?.error || 
+                         data.error?.message ||
+                         "Failed to connect - check your private key";
+        setError(errorMsg);
       }
     } catch (err) {
-      setError("Connection failed");
+      console.error("Connection error:", err);
+      setError(`Connection failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setIsConnecting(false);
     }

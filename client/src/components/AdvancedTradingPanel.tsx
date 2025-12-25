@@ -165,7 +165,7 @@ export function AdvancedTradingPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Target className="h-5 w-5 text-emerald-500" />
-            Weekly Profit Target: $100+
+            Weekly Profit Target: $1,000+
           </CardTitle>
         </CardHeader>
         <CardContent>

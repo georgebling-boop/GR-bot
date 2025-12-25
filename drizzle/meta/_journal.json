@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "5",
-      "when": 1766689370631,
-      "tag": "0001_dark_angel",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1766690520179,
-      "tag": "0002_sad_lenny_balinger",
+      "when": 1766691834014,
+      "tag": "0001_many_viper",
       "breakpoints": true
     }
   ]

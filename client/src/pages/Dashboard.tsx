@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { SelfLearningPanel } from "@/components/SelfLearningPanel";
 import { AdvancedTradingPanel } from "@/components/AdvancedTradingPanel";
+import { ContinuousLearningPanel } from "@/components/ContinuousLearningPanel";
 
 /**
  * George's Trade Bot Dashboard
@@ -490,8 +491,8 @@ export default function Dashboard() {
               </Card>
             )}
 
-            {/* Self-Learning AI */}
-            <SelfLearningPanel />
+            {/* Continuous Learning AI - Learns from every trade */}
+            <ContinuousLearningPanel />
 
             {/* Advanced Trading with Bot Health */}
             <AdvancedTradingPanel />

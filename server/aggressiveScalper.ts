@@ -2,7 +2,20 @@
  * Aggressive Scalping Trading System
  * $800 starting balance with buy-low-sell-high strategy
  * Many small trades for consistent profits
+ * Integrated with Continuous Learning AI
  */
+
+import {
+  learnFromTrade,
+  getOptimizedParameters,
+  getStrategyWeights,
+  getBestStrategyForSymbol,
+  isGoodTradingTime,
+  getEntryConfidence,
+  type TradeLesson,
+  type MarketState,
+  type IndicatorSnapshot,
+} from "./continuousLearningAI";
 
 export interface ScalpingTrade {
   id: number;
@@ -321,6 +334,78 @@ export function stopTrading(): ScalpingSession | null {
 }
 
 /**
+ * Learn from a closed trade - sends data to Continuous Learning AI
+ */
+function learnFromClosedTrade(trade: ScalpingTrade, priceData: PriceData): void {
+  const prices = priceHistory[trade.symbol] || [];
+  const rsi = calculateRSI(prices);
+  const sma5 = calculateSMA(prices, 5);
+  const sma20 = calculateSMA(prices, 20);
+  const bb = calculateBollingerBands(prices);
+  
+  // Determine market state
+  const trend = sma5 > sma20 ? "bullish" : sma5 < sma20 ? "bearish" : "sideways";
+  const volatility = Math.abs(priceData.change24h) * 10; // Scale to 0-100
+  
+  const marketState: MarketState = {
+    trend: trend as "bullish" | "bearish" | "sideways",
+    volatility: Math.min(100, Math.max(0, volatility)),
+    momentum: priceData.change24h,
+    volume: priceData.volume > 1000000000 ? "high" : priceData.volume < 500000000 ? "low" : "normal",
+    pricePosition: rsi < 30 ? "oversold" : rsi > 70 ? "overbought" : "neutral",
+  };
+  
+  const indicators: IndicatorSnapshot = {
+    rsi,
+    macd: sma5 - sma20,
+    macdSignal: calculateSMA(prices, 9) - calculateSMA(prices, 26),
+    macdHistogram: (sma5 - sma20) - (calculateSMA(prices, 9) - calculateSMA(prices, 26)),
+    bollingerUpper: bb.upper,
+    bollingerLower: bb.lower,
+    bollingerMiddle: bb.middle,
+    ema9: calculateSMA(prices, 9),
+    ema21: calculateSMA(prices, 21),
+    ema50: calculateSMA(prices, 50),
+    atr: (priceData.high24h - priceData.low24h) / priceData.price * 100,
+    volumeRatio: 1,
+  };
+  
+  const now = new Date();
+  const openedAt = new Date(trade.openedAt);
+  const duration = (now.getTime() - openedAt.getTime()) / 1000 / 60; // Duration in minutes
+  
+  const lesson: TradeLesson = {
+    tradeId: `trade_${trade.id}`,
+    symbol: trade.symbol,
+    strategy: trade.strategy,
+    entryPrice: trade.entryPrice,
+    exitPrice: trade.exitPrice || priceData.price,
+    profit: trade.profit,
+    profitPercent: trade.profitPercent,
+    duration,
+    isWin: trade.profit > 0,
+    marketState,
+    indicators,
+    entryTiming: {
+      hourOfDay: openedAt.getHours(),
+      dayOfWeek: openedAt.getDay(),
+      priceVelocity: 0,
+      timeSinceLastTrade: 0,
+    },
+    exitTiming: {
+      hourOfDay: now.getHours(),
+      dayOfWeek: now.getDay(),
+      priceVelocity: trade.profitPercent,
+      timeSinceLastTrade: duration,
+    },
+    timestamp: now,
+  };
+  
+  // Send to continuous learning AI
+  learnFromTrade(lesson);
+}
+
+/**
  * Execute a single trading cycle
  */
 export function executeTradingCycle(): { 
@@ -359,6 +444,9 @@ export function executeTradingCycle(): {
       
       closedTradesThisCycle.push(trade);
       actions.push(`STOP LOSS: ${trade.symbol} @ $${currentPrice.toFixed(4)} (${trade.profitPercent.toFixed(2)}%)`);
+      
+      // LEARN FROM THIS TRADE - Continuous Learning AI
+      learnFromClosedTrade(trade, priceData);
     }
     // Check take profit
     else if (currentPrice >= trade.takeProfit) {
@@ -375,6 +463,9 @@ export function executeTradingCycle(): {
       
       closedTradesThisCycle.push(trade);
       actions.push(`TAKE PROFIT: ${trade.symbol} @ $${currentPrice.toFixed(4)} (+${trade.profitPercent.toFixed(2)}%)`);
+      
+      // LEARN FROM THIS TRADE - Continuous Learning AI
+      learnFromClosedTrade(trade, priceData);
     }
   });
   

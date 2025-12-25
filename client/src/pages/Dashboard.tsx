@@ -31,6 +31,9 @@ import {
 import { SelfLearningPanel } from "@/components/SelfLearningPanel";
 import { AdvancedTradingPanel } from "@/components/AdvancedTradingPanel";
 import { ContinuousLearningPanel } from "@/components/ContinuousLearningPanel";
+import { TradeAlertsPanel } from "@/components/TradeAlertsPanel";
+import { BacktestingPanel } from "@/components/BacktestingPanel";
+import { BrainPersistencePanel } from "@/components/BrainPersistencePanel";
 
 /**
  * George's Trade Bot Dashboard
@@ -493,6 +496,15 @@ export default function Dashboard() {
 
             {/* Continuous Learning AI - Learns from every trade */}
             <ContinuousLearningPanel />
+
+            {/* Trade Alerts & Brain Persistence */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TradeAlertsPanel />
+              <BrainPersistencePanel />
+            </div>
+
+            {/* Strategy Backtesting */}
+            <BacktestingPanel />
 
             {/* Advanced Trading with Bot Health */}
             <AdvancedTradingPanel />

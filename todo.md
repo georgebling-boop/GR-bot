@@ -78,3 +78,25 @@
 - [x] Entry/exit timing optimization - learn optimal trade timing
 - [x] Risk-adjusted position sizing - learn optimal position sizes
 - [x] Unlimited improvement potential - no caps on learning capability
+
+
+## Brain Persistence to Database
+- [x] Create database schema for AI brain state
+- [x] Implement auto-save on learning cycles
+- [x] Implement auto-load on server startup
+- [x] Add manual save/load controls
+- [x] Ensure brain survives server restarts
+
+## Real-Time Trade Alerts
+- [x] Create alerts database schema
+- [x] Implement high-confidence opportunity detection
+- [x] Add in-app notification system
+- [x] Create alerts history panel
+- [x] Add alert settings/preferences
+
+## Backtesting Module
+- [x] Create historical data storage
+- [x] Implement backtesting engine
+- [x] Add strategy performance comparison
+- [x] Create backtesting results visualization
+- [x] Add backtesting controls to dashboard

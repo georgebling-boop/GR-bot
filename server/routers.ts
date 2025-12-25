@@ -15,6 +15,9 @@ import { aggressiveScalperRouter } from "./routers/aggressiveScalper";
 import { selfLearningRouter } from "./routers/selfLearning";
 import { advancedTradingRouter } from "./routers/advancedTrading";
 import { continuousLearningRouter } from "./routers/continuousLearning";
+import { brainPersistenceRouter } from "./routers/brainPersistence";
+import { tradeAlertsRouter } from "./routers/tradeAlerts";
+import { backtestingRouter } from "./routers/backtesting";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -42,6 +45,9 @@ export const appRouter = router({
   learning: selfLearningRouter,
   advanced: advancedTradingRouter,
   ai: continuousLearningRouter,
+  brainPersistence: brainPersistenceRouter,
+  alerts: tradeAlertsRouter,
+  backtest: backtestingRouter,
 });
 
 export type AppRouter = typeof appRouter;

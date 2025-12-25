@@ -125,3 +125,11 @@
 - [x] Create competition dashboard panel
 - [x] Add start/stop competition controls
 - [x] Display winning strategy analysis
+
+
+## View-Only Dashboard Mode
+- [x] Create ViewOnlyDashboard component without buttons
+- [x] Remove all interactive controls (Start, Stop, Reset, Save, etc.)
+- [x] Keep all data displays, charts, and metrics visible
+- [x] Add /view route for public viewing
+- [x] Auto-refresh data for live updates

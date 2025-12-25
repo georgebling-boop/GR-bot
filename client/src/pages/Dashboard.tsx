@@ -29,6 +29,7 @@ import {
   AreaChart,
 } from "recharts";
 import { SelfLearningPanel } from "@/components/SelfLearningPanel";
+import { AdvancedTradingPanel } from "@/components/AdvancedTradingPanel";
 
 /**
  * George's Trade Bot Dashboard
@@ -491,6 +492,9 @@ export default function Dashboard() {
 
             {/* Self-Learning AI */}
             <SelfLearningPanel />
+
+            {/* Advanced Trading with Bot Health */}
+            <AdvancedTradingPanel />
 
             {/* Recent Trades */}
             {session.closedTrades.length > 0 && (

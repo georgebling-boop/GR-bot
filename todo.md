@@ -100,3 +100,28 @@
 - [x] Add strategy performance comparison
 - [x] Create backtesting results visualization
 - [x] Add backtesting controls to dashboard
+
+
+## Email/SMS Notifications
+- [x] Create notification preferences schema
+- [x] Implement email notification service
+- [x] Implement SMS notification service (via webhook)
+- [x] Add notification triggers for high-confidence alerts
+- [x] Create notification settings panel in dashboard
+- [x] Test notification delivery
+
+## Portfolio Diversification View
+- [x] Create portfolio schema for multi-coin tracking
+- [x] Implement allocation recommendations engine
+- [x] Add portfolio performance tracking
+- [x] Create portfolio diversification dashboard panel
+- [x] Add rebalancing suggestions
+- [x] Visualize portfolio allocation pie chart
+
+## Paper Trading Competitions
+- [x] Create competition schema for multiple AI instances
+- [x] Implement competition engine with different strategies
+- [x] Add leaderboard tracking
+- [x] Create competition dashboard panel
+- [x] Add start/stop competition controls
+- [x] Display winning strategy analysis

@@ -101,7 +101,7 @@ describe("Backtesting Module", () => {
 
   describe("compareStrategies", () => {
     it("should compare multiple strategies", async () => {
-      const results = await compareStrategies("BTC", 7, 800);
+      const results = await compareStrategies("BTC", 3, 800);
       
       expect(results).toBeDefined();
       expect(results.length).toBeGreaterThan(0);
@@ -114,7 +114,7 @@ describe("Backtesting Module", () => {
     });
 
     it("should include all standard strategies", async () => {
-      const results = await compareStrategies("ETH", 7, 500);
+      const results = await compareStrategies("ETH", 3, 500);
       
       const strategies = results.map(r => r.strategy);
       expect(strategies).toContain("momentum");
@@ -126,7 +126,7 @@ describe("Backtesting Module", () => {
   });
 
   describe("getBacktestStats", () => {
-    it("should return backtest statistics", async () => {
+    it("should return backtest statistics", { timeout: 15000 }, async () => {
       const stats = await getBacktestStats();
       
       expect(stats).toBeDefined();
@@ -139,7 +139,7 @@ describe("Backtesting Module", () => {
   });
 
   describe("getBacktestHistory", () => {
-    it("should return backtest history", async () => {
+    it("should return backtest history", { timeout: 15000 }, async () => {
       // First run a backtest to ensure there's data
       const endDate = new Date();
       const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);

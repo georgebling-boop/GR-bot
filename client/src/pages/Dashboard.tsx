@@ -34,6 +34,9 @@ import { ContinuousLearningPanel } from "@/components/ContinuousLearningPanel";
 import { TradeAlertsPanel } from "@/components/TradeAlertsPanel";
 import { BacktestingPanel } from "@/components/BacktestingPanel";
 import { BrainPersistencePanel } from "@/components/BrainPersistencePanel";
+import { NotificationsDisplay } from "@/components/NotificationsDisplay";
+import { PortfolioDisplay } from "@/components/PortfolioDisplay";
+import { CompetitionsDisplay } from "@/components/CompetitionsDisplay";
 
 /**
  * George's Trade Bot Dashboard
@@ -505,6 +508,13 @@ export default function Dashboard() {
 
             {/* Strategy Backtesting */}
             <BacktestingPanel />
+
+            {/* Portfolio, Notifications & Competitions */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <PortfolioDisplay />
+              <NotificationsDisplay />
+              <CompetitionsDisplay />
+            </div>
 
             {/* Advanced Trading with Bot Health */}
             <AdvancedTradingPanel />

@@ -100,3 +100,90 @@ export const tradeHistory = mysqlTable("trade_history", {
 
 export type TradeHistoryRecord = typeof tradeHistory.$inferSelect;
 export type InsertTradeHistory = typeof tradeHistory.$inferInsert;
+
+// Notification Preferences - User notification settings
+export const notificationPreferences = mysqlTable("notification_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  emailEnabled: int("emailEnabled").notNull().default(1),
+  smsEnabled: int("smsEnabled").notNull().default(0),
+  phoneNumber: varchar("phoneNumber", { length: 20 }),
+  webhookUrl: varchar("webhookUrl", { length: 512 }),
+  alertOnOpportunity: int("alertOnOpportunity").notNull().default(1),
+  alertOnProfit: int("alertOnProfit").notNull().default(1),
+  alertOnLoss: int("alertOnLoss").notNull().default(1),
+  alertOnRisk: int("alertOnRisk").notNull().default(1),
+  minConfidence: int("minConfidence").notNull().default(80), // Only alert if confidence >= this
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
+
+// Notification Log - Track sent notifications
+export const notificationLog = mysqlTable("notification_log", {
+  id: int("id").autoincrement().primaryKey(),
+  alertId: int("alertId").notNull(),
+  channel: mysqlEnum("channel", ["email", "sms", "webhook"]).notNull(),
+  recipient: varchar("recipient", { length: 320 }).notNull(),
+  status: mysqlEnum("status", ["pending", "sent", "failed"]).notNull(),
+  errorMessage: text("errorMessage"),
+  sentAt: timestamp("sentAt").defaultNow().notNull(),
+});
+
+export type NotificationLogRecord = typeof notificationLog.$inferSelect;
+export type InsertNotificationLog = typeof notificationLog.$inferInsert;
+
+// Portfolio Holdings - Track multi-coin portfolio
+export const portfolioHoldings = mysqlTable("portfolio_holdings", {
+  id: int("id").autoincrement().primaryKey(),
+  symbol: varchar("symbol", { length: 20 }).notNull(),
+  quantity: varchar("quantity", { length: 32 }).notNull(),
+  avgEntryPrice: varchar("avgEntryPrice", { length: 32 }).notNull(),
+  currentValue: varchar("currentValue", { length: 32 }).notNull(),
+  profitLoss: varchar("profitLoss", { length: 32 }).notNull(),
+  profitLossPercent: varchar("profitLossPercent", { length: 32 }).notNull(),
+  allocationPercent: varchar("allocationPercent", { length: 32 }).notNull(),
+  targetAllocation: varchar("targetAllocation", { length: 32 }).notNull().default("0"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PortfolioHolding = typeof portfolioHoldings.$inferSelect;
+export type InsertPortfolioHolding = typeof portfolioHoldings.$inferInsert;
+
+// Trading Competitions - Multiple AI instances competing
+export const tradingCompetitions = mysqlTable("trading_competitions", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 128 }).notNull(),
+  status: mysqlEnum("status", ["pending", "running", "completed"]).notNull().default("pending"),
+  startingBalance: varchar("startingBalance", { length: 32 }).notNull(),
+  duration: int("duration").notNull(), // Duration in minutes
+  startedAt: timestamp("startedAt"),
+  endedAt: timestamp("endedAt"),
+  winnerId: int("winnerId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TradingCompetition = typeof tradingCompetitions.$inferSelect;
+export type InsertTradingCompetition = typeof tradingCompetitions.$inferInsert;
+
+// Competition Participants - AI instances in a competition
+export const competitionParticipants = mysqlTable("competition_participants", {
+  id: int("id").autoincrement().primaryKey(),
+  competitionId: int("competitionId").notNull(),
+  name: varchar("name", { length: 64 }).notNull(),
+  strategy: varchar("strategy", { length: 64 }).notNull(),
+  currentBalance: varchar("currentBalance", { length: 32 }).notNull(),
+  totalProfit: varchar("totalProfit", { length: 32 }).notNull().default("0"),
+  totalTrades: int("totalTrades").notNull().default(0),
+  winRate: int("winRate").notNull().default(0),
+  rank: int("rank").notNull().default(0),
+  isActive: int("isActive").notNull().default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CompetitionParticipant = typeof competitionParticipants.$inferSelect;
+export type InsertCompetitionParticipant = typeof competitionParticipants.$inferInsert;

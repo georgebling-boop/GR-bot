@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { startTrading, executeTradingCycle, getSession } from "../aggressiveScalper";
+import { loadBrainFromDatabase, saveBrainToDatabase } from "../brainPersistence";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -59,7 +61,82 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    
+    // Auto-start trading bot on server startup
+    autoStartTradingBot();
   });
+}
+
+/**
+ * Auto-start the trading bot when server starts
+ * This ensures 24/7 continuous operation
+ */
+async function autoStartTradingBot() {
+  console.log('[AutoStart] Initializing trading bot...');
+  
+  try {
+    // Load AI brain state from database
+    console.log('[AutoStart] Loading AI brain from database...');
+    const brainLoaded = await loadBrainFromDatabase();
+    if (brainLoaded) {
+      console.log('[AutoStart] AI brain loaded successfully - resuming learned state');
+    } else {
+      console.log('[AutoStart] No saved brain found - starting fresh');
+    }
+    
+    // Start trading session
+    console.log('[AutoStart] Starting trading session...');
+    startTrading();
+    console.log('[AutoStart] Trading bot is now LIVE and learning!');
+    
+    // Start continuous trading loop
+    startContinuousTradingLoop();
+    
+    // Start periodic brain save (every 5 minutes)
+    startPeriodicBrainSave();
+    
+  } catch (error) {
+    console.error('[AutoStart] Error starting trading bot:', error);
+  }
+}
+
+/**
+ * Continuous trading loop - runs every 10 seconds
+ */
+function startContinuousTradingLoop() {
+  const TRADING_INTERVAL = 10000; // 10 seconds
+  
+  setInterval(() => {
+    try {
+      const session = getSession();
+      if (session?.isRunning) {
+        executeTradingCycle();
+      }
+    } catch (error) {
+      console.error('[TradingLoop] Error in trading cycle:', error);
+    }
+  }, TRADING_INTERVAL);
+  
+  console.log(`[AutoStart] Trading loop started - executing every ${TRADING_INTERVAL/1000}s`);
+}
+
+/**
+ * Periodic brain save - saves AI state every 5 minutes
+ */
+function startPeriodicBrainSave() {
+  const SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  
+  setInterval(async () => {
+    try {
+      console.log('[BrainSave] Auto-saving AI brain state...');
+      await saveBrainToDatabase();
+      console.log('[BrainSave] Brain state saved successfully');
+    } catch (error) {
+      console.error('[BrainSave] Error saving brain:', error);
+    }
+  }, SAVE_INTERVAL);
+  
+  console.log(`[AutoStart] Brain auto-save enabled - saving every ${SAVE_INTERVAL/60000} minutes`);
 }
 
 startServer().catch(console.error);

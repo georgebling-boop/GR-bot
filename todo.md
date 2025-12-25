@@ -133,3 +133,11 @@
 - [x] Keep all data displays, charts, and metrics visible
 - [x] Add /view route for public viewing
 - [x] Auto-refresh data for live updates
+
+
+## Auto-Start Continuous Trading
+- [x] Auto-start trading on server startup
+- [x] Auto-load AI brain state from database on startup
+- [x] Auto-save brain state periodically (every 5 minutes)
+- [x] Ensure 24/7 continuous operation
+- [x] Resume trading after any server restart

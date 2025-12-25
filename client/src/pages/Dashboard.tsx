@@ -8,9 +8,7 @@ import {
   Activity,
   DollarSign,
   Target,
-  Play,
-  Square,
-  RotateCcw,
+
   RefreshCw,
   Zap,
   CheckCircle,
@@ -218,26 +216,21 @@ export default function Dashboard() {
       </header>
 
       <main className="container py-6 space-y-6">
-        {/* Not Initialized State */}
+         {/* Loading State */}
         {!session && (
           <Card className="p-8 text-center">
             <div className="max-w-md mx-auto space-y-4">
               <div className="p-4 bg-accent/20 rounded-full w-fit mx-auto">
-                <Zap className="text-accent" size={40} />
+                <Activity className="text-accent animate-pulse" size={40} />
               </div>
-              <h2 className="text-2xl font-bold text-foreground">Start Paper Trading</h2>
+              <h2 className="text-2xl font-bold text-foreground">Initializing Trading Bot...</h2>
               <p className="text-muted-foreground">
-                Initialize your $800 paper trading account to start testing aggressive scalping strategies with real market prices.
+                The AI trading bot is starting up automatically. It will begin trading and learning in a few seconds.
               </p>
-              <Button
-                onClick={() => initializeMutation.mutate()}
-                disabled={initializeMutation.isPending}
-                size="lg"
-                className="bg-accent hover:bg-accent/90"
-              >
-                <Play size={20} className="mr-2" />
-                Start with $800
-              </Button>
+              <div className="flex items-center justify-center gap-2 text-green-400">
+                <Activity size={16} className="animate-spin" />
+                <span>Auto-starting 24/7 trading...</span>
+              </div>
             </div>
           </Card>
         )}
@@ -320,38 +313,16 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {!isAutoTrading ? (
-                    <Button
-                      onClick={() => startMutation.mutate()}
-                      disabled={startMutation.isPending}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Play size={16} className="mr-2" />
-                      Start Trading
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => stopMutation.mutate()}
-                      disabled={stopMutation.isPending}
-                      variant="destructive"
-                    >
-                      <Square size={16} className="mr-2" />
-                      Stop Trading
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => resetMutation.mutate()}
-                    disabled={resetMutation.isPending}
-                    variant="outline"
-                  >
-                    <RotateCcw size={16} className="mr-2" />
-                    Reset
-                  </Button>
+                <div className="flex gap-2 items-center">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
+                    <Activity size={14} className="animate-pulse" />
+                    Auto-Trading 24/7
+                  </div>
                   <Button
                     onClick={() => sessionQuery.refetch()}
                     variant="outline"
                     size="icon"
+                    title="Refresh data"
                   >
                     <RefreshCw size={16} />
                   </Button>

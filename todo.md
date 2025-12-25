@@ -141,3 +141,10 @@
 - [x] Auto-save brain state periodically (every 5 minutes)
 - [x] Ensure 24/7 continuous operation
 - [x] Resume trading after any server restart
+
+
+## Remove Control Buttons
+- [x] Remove Start Trading button
+- [x] Remove Stop Trading button
+- [x] Remove Reset button
+- [x] Make main dashboard view-only for monitoring

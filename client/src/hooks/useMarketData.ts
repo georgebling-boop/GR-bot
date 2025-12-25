@@ -26,7 +26,7 @@ export function useMarketData(cryptoIds?: string[]) {
 
   const pricesQuery = trpc.marketData.getPrices.useQuery(
     { ids: cryptoIds },
-    { refetchInterval: 30000 } // Refresh every 30 seconds
+    { refetchInterval: 60000, staleTime: 55000 } // Refresh every 30 seconds
   );
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export function useCurrentPrice(symbol: string) {
 
   const priceQuery = trpc.marketData.getCurrentPrice.useQuery(
     { symbol },
-    { refetchInterval: 10000, enabled: !!symbol } // Refresh every 10 seconds
+    { refetchInterval: 30000, staleTime: 25000, enabled: !!symbol } // Refresh every 10 seconds
   );
 
   useEffect(() => {

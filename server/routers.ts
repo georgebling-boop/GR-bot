@@ -12,6 +12,7 @@ import { autoTraderRouter } from "./routers/autoTrader";
 import { autoTradingExecutorRouter } from "./routers/autoTradingExecutor";
 import { rsiMacdBollingerBandsRouter } from "./routers/rsiMacdBollingerBands";
 import { aggressiveScalperRouter } from "./routers/aggressiveScalper";
+import { selfLearningRouter } from "./routers/selfLearning";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -36,6 +37,7 @@ export const appRouter = router({
   autoTradingExecutor: autoTradingExecutorRouter,
   rsiMacdBollingerBands: rsiMacdBollingerBandsRouter,
   scalper: aggressiveScalperRouter,
+  learning: selfLearningRouter,
 });
 
 export type AppRouter = typeof appRouter;

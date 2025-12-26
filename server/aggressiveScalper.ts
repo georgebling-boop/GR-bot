@@ -631,7 +631,9 @@ export async function executeTradingCycle(): Promise<{
       
       const analysis = analyzeScalpingOpportunity(symbol);
       
-      if (analysis.action === "BUY" && analysis.confidence >= 75) { // Higher confidence = safer trades
+      // Use AI's adaptive confidence threshold (dynamically adjusted based on performance)
+      const aiThreshold = getOptimizedParameters().entryConfidenceThreshold || 75;
+      if (analysis.action === "BUY" && analysis.confidence >= aiThreshold) { // AI-optimized threshold
         const priceData = getLivePrice(symbol);
         const currentPrice = priceData.price;
         

@@ -714,6 +714,21 @@ export function getOptimizedParameters(): AdaptiveParameters {
 }
 
 /**
+ * Set the confidence threshold manually (useful for tuning)
+ */
+export function setConfidenceThreshold(threshold: number): { success: boolean; newThreshold: number; message: string } {
+  const clampedThreshold = Math.max(30, Math.min(90, threshold));
+  brain.adaptiveParameters.entryConfidenceThreshold = clampedThreshold;
+  brain.confidenceThreshold = clampedThreshold;
+  
+  return {
+    success: true,
+    newThreshold: clampedThreshold,
+    message: `Confidence threshold set to ${clampedThreshold}%. AI will ${clampedThreshold < 60 ? 'take more trades' : clampedThreshold > 75 ? 'be more selective' : 'trade normally'}.`
+  };
+}
+
+/**
  * Get strategy weights for decision making
  */
 export function getStrategyWeights(): Record<string, number> {

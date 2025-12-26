@@ -225,3 +225,10 @@
 - [x] Implement automatic trading pause when drawdown exceeds 10%
 - [x] Add visual indicator when trading is paused due to drawdown (pauseReason in API)
 - [x] Resume trading automatically when drawdown recovers to 5%
+
+
+## AI Confidence Threshold Tuning
+- [x] Add dynamic confidence threshold adjustment based on win rate (already built-in)
+- [x] Lower threshold when win rate is high (decreases by 1.5 on wins)
+- [x] Raise threshold when win rate is low (increases by 2 on losses)
+- [x] Add API endpoint to get/set confidence threshold (ai.setConfidenceThreshold)

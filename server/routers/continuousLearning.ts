@@ -4,6 +4,7 @@ import {
   learnFromTrade,
   getBrainState,
   getOptimizedParameters,
+  setConfidenceThreshold,
   getStrategyWeights,
   getBestStrategyForSymbol,
   isGoodTradingTime,
@@ -193,6 +194,15 @@ export const continuousLearningRouter = router({
   getOptimizedParameters: publicProcedure.query(() => {
     return getOptimizedParameters();
   }),
+
+  /**
+   * Set confidence threshold manually
+   */
+  setConfidenceThreshold: publicProcedure
+    .input(z.object({ threshold: z.number().min(30).max(90) }))
+    .mutation(({ input }) => {
+      return setConfidenceThreshold(input.threshold);
+    }),
 
   /**
    * Get strategy weights

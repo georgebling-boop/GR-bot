@@ -132,11 +132,11 @@ async function autoStartTradingBot() {
 function startContinuousTradingLoop() {
   const TRADING_INTERVAL = 10000; // 10 seconds
   
-  setInterval(() => {
+  setInterval(async () => {
     try {
       const session = getSession();
       if (session?.isRunning) {
-        executeTradingCycle();
+        await executeTradingCycle();
       }
     } catch (error) {
       console.error('[TradingLoop] Error in trading cycle:', error);

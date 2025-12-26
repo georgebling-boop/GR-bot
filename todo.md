@@ -187,3 +187,22 @@
 - [x] AI learning system analyzing trades (77% confident, 70% win rate)
 - [x] Auto-Trading 24/7 enabled and running
 - [x] Live Hyperliquid prices displayed on dashboard
+
+
+## 24/7 Operation Testing
+- [ ] Run all vitest tests to verify core functionality
+- [ ] Test auto-start trading on server startup
+- [ ] Test auto-save brain state periodically
+- [ ] Test auto-reconnect Hyperliquid on restart
+- [ ] Run backtesting module to verify strategy
+- [ ] Verify continuous operation stability
+
+
+## Low-Risk Trading Settings
+- [x] Reduced position size from 5-10% to 1-2%
+- [x] Reduced max position from 15% to 3%
+- [x] Tightened stop loss from 2% to 1%
+- [x] Reduced take profit from 1.5% to 1%
+- [x] Reduced max concurrent trades from 5 to 3
+- [x] Increased confidence threshold from 65% to 75%
+- [x] Integrated real Hyperliquid order execution

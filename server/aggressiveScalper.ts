@@ -16,7 +16,14 @@ import {
   type MarketState,
   type IndicatorSnapshot,
 } from "./continuousLearningAI";
-import { getAllPrices as getHyperliquidPrices, getConnectionStatus } from "./hyperliquid";
+import { 
+  getAllPrices as getHyperliquidPrices, 
+  getConnectionStatus,
+  placeMarketOrder as hlPlaceMarketOrder,
+  getAccountState as hlGetAccountState,
+  closePosition as hlClosePosition,
+  type TradeResult
+} from "./hyperliquid";
 
 export interface ScalpingTrade {
   id: number;
@@ -475,12 +482,12 @@ function learnFromClosedTrade(trade: ScalpingTrade, priceData: PriceData): void 
 /**
  * Execute a single trading cycle
  */
-export function executeTradingCycle(): { 
+export async function executeTradingCycle(): Promise<{ 
   session: ScalpingSession; 
   actions: string[];
   newTrades: ScalpingTrade[];
   closedTrades: ScalpingTrade[];
-} {
+}> {
   if (!session) {
     session = initializeSession(800);
   }
@@ -541,32 +548,59 @@ export function executeTradingCycle(): {
   session.closedTrades.push(...closedTradesThisCycle);
   
   // Look for new trading opportunities
-  if (session.isRunning && session.openTrades.length < 5) { // Max 5 concurrent trades
+  if (session.isRunning && session.openTrades.length < 3) { // Max 3 concurrent trades (low risk)
     for (const symbol of symbols) {
       if (session.openTrades.some(t => t.symbol === symbol)) continue; // Skip if already have position
       
       const analysis = analyzeScalpingOpportunity(symbol);
       
-      if (analysis.action === "BUY" && analysis.confidence >= 65) {
+      if (analysis.action === "BUY" && analysis.confidence >= 75) { // Higher confidence = safer trades
         const priceData = getLivePrice(symbol);
         const currentPrice = priceData.price;
         
-        // Stake 5-10% of balance per trade for aggressive scalping
-        const stakePercent = 0.05 + (analysis.confidence / 100) * 0.05;
-        const stake = Math.min(session.currentBalance * stakePercent, session.currentBalance * 0.15);
+        // Stake 1-2% of balance per trade for LOW RISK trading
+        const stakePercent = 0.01 + (analysis.confidence / 100) * 0.01; // 1-2% per trade
+        const stake = Math.min(session.currentBalance * stakePercent, session.currentBalance * 0.03); // Max 3%
         
-        if (stake >= 10 && session.currentBalance >= stake) { // Minimum $10 trade
+        if (stake >= 5 && session.currentBalance >= stake) { // Minimum $5 trade
           const quantity = stake / currentPrice;
-          const stopLoss = currentPrice * 0.98; // 2% stop loss
-          const takeProfit = currentPrice * 1.015; // 1.5% take profit (scalping)
+          const stopLoss = currentPrice * 0.99; // 1% stop loss (tighter)
+          const takeProfit = currentPrice * 1.01; // 1% take profit (smaller but safer)
+          
+          // Try to place real order on Hyperliquid if connected
+          const hlStatus = getConnectionStatus();
+          let realOrderPlaced = false;
+          let actualEntryPrice = currentPrice;
+          let actualQuantity = quantity;
+          
+          if (hlStatus.connected) {
+            try {
+              // Calculate size for Hyperliquid (in contracts)
+              const hlSize = Number((stake / currentPrice).toFixed(6));
+              console.log(`[Scalper] Placing REAL order on Hyperliquid: BUY ${hlSize} ${symbol}`);
+              
+              const result = await hlPlaceMarketOrder(symbol, "buy", hlSize, false);
+              
+              if (result.success && result.filledSize && result.avgPrice) {
+                realOrderPlaced = true;
+                actualEntryPrice = result.avgPrice;
+                actualQuantity = result.filledSize;
+                console.log(`[Scalper] REAL order filled: ${actualQuantity} ${symbol} @ $${actualEntryPrice}`);
+              } else {
+                console.log(`[Scalper] Real order failed: ${result.error}, using paper trade`);
+              }
+            } catch (err) {
+              console.error(`[Scalper] Hyperliquid order error:`, err);
+            }
+          }
           
           const trade: ScalpingTrade = {
             id: tradeIdCounter++,
             symbol,
             side: "BUY",
-            entryPrice: currentPrice,
+            entryPrice: actualEntryPrice,
             exitPrice: null,
-            quantity,
+            quantity: actualQuantity,
             stake,
             profit: 0,
             profitPercent: 0,
@@ -583,7 +617,8 @@ export function executeTradingCycle(): {
           session.totalTrades++;
           newTrades.push(trade);
           
-          actions.push(`BUY: ${symbol} @ $${currentPrice.toFixed(4)} | Stake: $${stake.toFixed(2)} | ${analysis.reason}`);
+          const orderType = realOrderPlaced ? "REAL" : "PAPER";
+          actions.push(`[${orderType}] BUY: ${symbol} @ $${actualEntryPrice.toFixed(4)} | Stake: $${stake.toFixed(2)} | ${analysis.reason}`);
         }
       }
     }
@@ -672,7 +707,7 @@ export function getAllPrices(): PriceData[] {
 /**
  * Run backtest with historical simulation
  */
-export function runBacktest(days: number = 30): {
+export async function runBacktest(days: number = 30): Promise<{
   finalBalance: number;
   totalProfit: number;
   totalProfitPercent: number;
@@ -681,7 +716,7 @@ export function runBacktest(days: number = 30): {
   maxDrawdown: number;
   bestStrategy: string;
   trades: ScalpingTrade[];
-} {
+}> {
   // Initialize fresh session for backtest
   const backtestSession = initializeSession(800);
   backtestSession.isRunning = true;
@@ -694,7 +729,7 @@ export function runBacktest(days: number = 30): {
   const cycles = days * 24 * 4;
   
   for (let i = 0; i < cycles; i++) {
-    const result = executeTradingCycle();
+    const result = await executeTradingCycle();
     trades.push(...result.closedTrades);
     
     // Track max drawdown

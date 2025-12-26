@@ -38,7 +38,7 @@ export const aggressiveScalperRouter = router({
 
   // Execute one trading cycle
   executeCycle: publicProcedure.mutation(async () => {
-    const result = executeTradingCycle();
+    const result = await executeTradingCycle();
     return {
       success: true,
       session: result.session,
@@ -64,7 +64,7 @@ export const aggressiveScalperRouter = router({
   backtest: publicProcedure
     .input(z.object({ days: z.number().min(1).max(365).default(30) }))
     .mutation(async ({ input }) => {
-      const result = runBacktest(input.days);
+      const result = await runBacktest(input.days);
       return { success: true, result };
     }),
 });

@@ -147,6 +147,12 @@ let session: ScalpingSession | null = null;
 let tradeIdCounter = 1;
 let priceHistory: Record<string, number[]> = {};
 
+// Drawdown protection
+let maxEquity = 800;
+let tradingPausedDueToDrawdown = false;
+const MAX_DRAWDOWN_LIMIT = 10; // 10% max drawdown before pausing
+const DRAWDOWN_RECOVERY_THRESHOLD = 5; // Resume when drawdown drops to 5%
+
 /**
  * Initialize price history for trend analysis
  */
@@ -385,6 +391,46 @@ export function getSession(): ScalpingSession | null {
 }
 
 /**
+ * Get drawdown protection status
+ */
+export function getDrawdownStatus(): {
+  currentDrawdown: number;
+  maxEquity: number;
+  tradingPaused: boolean;
+  pauseReason: string | null;
+  limit: number;
+  recoveryThreshold: number;
+} {
+  if (!session) {
+    return {
+      currentDrawdown: 0,
+      maxEquity: 800,
+      tradingPaused: false,
+      pauseReason: null,
+      limit: MAX_DRAWDOWN_LIMIT,
+      recoveryThreshold: DRAWDOWN_RECOVERY_THRESHOLD,
+    };
+  }
+  
+  const currentEquity = session.currentBalance + session.openTrades.reduce((sum, t) => {
+    const currentPrice = getLivePrice(t.symbol).price;
+    const unrealizedPnL = (currentPrice - t.entryPrice) * t.quantity;
+    return sum + unrealizedPnL;
+  }, 0);
+  
+  const currentDrawdown = maxEquity > 0 ? ((maxEquity - currentEquity) / maxEquity) * 100 : 0;
+  
+  return {
+    currentDrawdown,
+    maxEquity,
+    tradingPaused: tradingPausedDueToDrawdown,
+    pauseReason: tradingPausedDueToDrawdown ? `Drawdown exceeded ${MAX_DRAWDOWN_LIMIT}% limit` : null,
+    limit: MAX_DRAWDOWN_LIMIT,
+    recoveryThreshold: DRAWDOWN_RECOVERY_THRESHOLD,
+  };
+}
+
+/**
  * Start automated trading
  */
 export function startTrading(): ScalpingSession | null {
@@ -487,14 +533,45 @@ export async function executeTradingCycle(): Promise<{
   actions: string[];
   newTrades: ScalpingTrade[];
   closedTrades: ScalpingTrade[];
+  tradingPaused?: boolean;
+  pauseReason?: string;
 }> {
   if (!session) {
     session = initializeSession(800);
+    maxEquity = 800; // Reset max equity on new session
   }
   
   const actions: string[] = [];
   const newTrades: ScalpingTrade[] = [];
   const closedTradesThisCycle: ScalpingTrade[] = [];
+  
+  // Calculate current drawdown
+  const currentEquity = session.currentBalance + session.openTrades.reduce((sum, t) => {
+    const currentPrice = getLivePrice(t.symbol).price;
+    const unrealizedPnL = (currentPrice - t.entryPrice) * t.quantity;
+    return sum + unrealizedPnL;
+  }, 0);
+  
+  // Update max equity
+  if (currentEquity > maxEquity) {
+    maxEquity = currentEquity;
+  }
+  
+  const currentDrawdown = ((maxEquity - currentEquity) / maxEquity) * 100;
+  
+  // Check if we should pause trading due to drawdown
+  if (currentDrawdown >= MAX_DRAWDOWN_LIMIT && !tradingPausedDueToDrawdown) {
+    tradingPausedDueToDrawdown = true;
+    console.log(`[Scalper] ⚠️ TRADING PAUSED - Drawdown ${currentDrawdown.toFixed(2)}% exceeds ${MAX_DRAWDOWN_LIMIT}% limit`);
+    actions.push(`⚠️ TRADING PAUSED - Drawdown ${currentDrawdown.toFixed(2)}% exceeds limit`);
+  }
+  
+  // Check if we can resume trading
+  if (tradingPausedDueToDrawdown && currentDrawdown <= DRAWDOWN_RECOVERY_THRESHOLD) {
+    tradingPausedDueToDrawdown = false;
+    console.log(`[Scalper] ✅ TRADING RESUMED - Drawdown recovered to ${currentDrawdown.toFixed(2)}%`);
+    actions.push(`✅ TRADING RESUMED - Drawdown recovered to ${currentDrawdown.toFixed(2)}%`);
+  }
   
   const symbols = Object.keys(CRYPTO_BASE_PRICES);
   
@@ -547,8 +624,8 @@ export async function executeTradingCycle(): Promise<{
   session.openTrades = session.openTrades.filter(t => t.status === "OPEN");
   session.closedTrades.push(...closedTradesThisCycle);
   
-  // Look for new trading opportunities
-  if (session.isRunning && session.openTrades.length < 3) { // Max 3 concurrent trades (low risk)
+  // Look for new trading opportunities (skip if trading is paused due to drawdown)
+  if (session.isRunning && session.openTrades.length < 3 && !tradingPausedDueToDrawdown) { // Max 3 concurrent trades (low risk)
     for (const symbol of symbols) {
       if (session.openTrades.some(t => t.symbol === symbol)) continue; // Skip if already have position
       
@@ -638,6 +715,8 @@ export async function executeTradingCycle(): Promise<{
     actions,
     newTrades,
     closedTrades: closedTradesThisCycle,
+    tradingPaused: tradingPausedDueToDrawdown,
+    pauseReason: tradingPausedDueToDrawdown ? `Drawdown exceeded ${MAX_DRAWDOWN_LIMIT}% limit` : undefined,
   };
 }
 

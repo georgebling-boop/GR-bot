@@ -218,3 +218,10 @@
 ## Bug Fixes
 - [x] Fix Bot Health Monitor uptime display not working (now shows server uptime)
 - [x] Fix Hyperliquid dashboard not showing correct amounts ($999 now displays correctly)
+
+
+## Auto-Save and Drawdown Protection
+- [x] Enable auto-save for AI brain by default (started via API)
+- [x] Implement automatic trading pause when drawdown exceeds 10%
+- [x] Add visual indicator when trading is paused due to drawdown (pauseReason in API)
+- [x] Resume trading automatically when drawdown recovers to 5%

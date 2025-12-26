@@ -3,6 +3,7 @@ import { publicProcedure, router } from "../_core/trpc";
 import {
   initializeSession,
   getSession,
+  getDrawdownStatus,
   startTrading,
   stopTrading,
   executeTradingCycle,
@@ -45,7 +46,14 @@ export const aggressiveScalperRouter = router({
       actions: result.actions,
       newTrades: result.newTrades,
       closedTrades: result.closedTrades,
+      tradingPaused: result.tradingPaused,
+      pauseReason: result.pauseReason,
     };
+  }),
+
+  // Get drawdown protection status
+  getDrawdownStatus: publicProcedure.query(() => {
+    return getDrawdownStatus();
   }),
 
   // Reset session to $800

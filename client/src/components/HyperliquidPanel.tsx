@@ -52,30 +52,67 @@ export function HyperliquidPanel() {
   const [openOrders, setOpenOrders] = useState<unknown[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch status periodically
+  // Fetch all data (status + account) together to avoid timing issues
   useEffect(() => {
-    const fetchStatus = async () => {
+    const fetchAllData = async () => {
       try {
-        const res = await fetch("/api/trpc/hyperliquid.getStatus");
-        const data = await res.json();
-        // Handle superjson response structure: data.result.data.json
-        const statusData = data.result?.data?.json || data.result?.data;
+        // First fetch status
+        const statusRes = await fetch("/api/trpc/hyperliquid.getStatus");
+        const statusJson = await statusRes.json();
+        const statusData = statusJson.result?.data?.json || statusJson.result?.data;
+        
         if (statusData) {
           setStatus(statusData);
+          
+          // If connected, also fetch account data immediately
+          if (statusData.connected) {
+            const [accountRes, pricesRes, ordersRes] = await Promise.all([
+              fetch("/api/trpc/hyperliquid.getAccountState"),
+              fetch("/api/trpc/hyperliquid.getPrices"),
+              fetch("/api/trpc/hyperliquid.getOpenOrders"),
+            ]);
+
+            const accountData = await accountRes.json();
+            const pricesData = await pricesRes.json();
+            const ordersData = await ordersRes.json();
+
+            const account = accountData.result?.data?.json || accountData.result?.data;
+            const pricesResult = pricesData.result?.data?.json || pricesData.result?.data;
+            const orders = ordersData.result?.data?.json || ordersData.result?.data;
+
+            console.log("[HyperliquidPanel] Fetched account:", account);
+            console.log("[HyperliquidPanel] Account value:", account?.marginSummary?.accountValue);
+            
+            if (account) {
+              console.log("[HyperliquidPanel] Setting accountState");
+              setAccountState(account);
+            }
+            if (pricesResult) setPrices(pricesResult);
+            if (orders) setOpenOrders(orders);
+          } else {
+            // Reset when disconnected
+            setAccountState(null);
+            setPrices({});
+            setOpenOrders([]);
+          }
         }
       } catch (err) {
-        console.error("Failed to fetch status:", err);
+        console.error("Failed to fetch data:", err);
       }
     };
 
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
+    // Fetch immediately on mount
+    fetchAllData();
+    // Then poll every 5 seconds
+    const interval = setInterval(fetchAllData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch account data when connected
+  // Keep the separate account data effect for when status changes
   useEffect(() => {
-    if (!status?.connected) return;
+    if (!status?.connected) {
+      return;
+    }
 
     const fetchAccountData = async () => {
       try {
@@ -91,21 +128,26 @@ export function HyperliquidPanel() {
 
         // Handle superjson response structure: data.result.data.json
         const account = accountData.result?.data?.json || accountData.result?.data;
-        const prices = pricesData.result?.data?.json || pricesData.result?.data;
+        const pricesResult = pricesData.result?.data?.json || pricesData.result?.data;
         const orders = ordersData.result?.data?.json || ordersData.result?.data;
 
+        console.log("[Hyperliquid] Account data:", account);
+        console.log("[Hyperliquid] Prices:", pricesResult);
+
         if (account) setAccountState(account);
-        if (prices) setPrices(prices);
+        if (pricesResult) setPrices(pricesResult);
         if (orders) setOpenOrders(orders);
       } catch (err) {
         console.error("Failed to fetch account data:", err);
       }
     };
 
+    // Fetch immediately
     fetchAccountData();
-    const interval = setInterval(fetchAccountData, 10000);
+    // Then fetch every 5 seconds for more responsive updates
+    const interval = setInterval(fetchAccountData, 5000);
     return () => clearInterval(interval);
-  }, [status?.connected]);
+  }, [status?.connected, status?.wallet]);
 
   const handleConnect = async () => {
     if (!privateKey) {
@@ -307,7 +349,7 @@ export function HyperliquidPanel() {
                   Account Value
                 </div>
                 <div className="text-lg font-bold text-green-400">
-                  {formatUSD(accountState?.marginSummary?.accountValue || 0)}
+                  {formatUSD(accountState?.marginSummary?.accountValue ?? 0)}
                 </div>
               </div>
 

@@ -213,3 +213,8 @@
 - [x] Improve strategy weight adjustments (more aggressive boost/penalty)
 - [x] Add market condition detection (already present, enhanced)
 - [x] Optimize entry/exit timing based on learned patterns (confidence thresholds adjusted)
+
+
+## Bug Fixes
+- [x] Fix Bot Health Monitor uptime display not working (now shows server uptime)
+- [x] Fix Hyperliquid dashboard not showing correct amounts ($999 now displays correctly)

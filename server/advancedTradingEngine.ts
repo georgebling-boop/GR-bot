@@ -89,14 +89,14 @@ export interface TradingSession {
 // ============= STATE =============
 let currentSession: TradingSession | null = null;
 let healthAlerts: HealthAlert[] = [];
+const serverStartTime = new Date(); // Track when server started
 let sessionStartTime = new Date();
 
 // ============= BOT HEALTH =============
 export function getBotHealth(): BotHealth {
   const now = new Date();
-  const uptime = currentSession 
-    ? (now.getTime() - sessionStartTime.getTime()) / 1000 
-    : 0;
+  // Always show uptime from server start, not session start
+  const uptime = (now.getTime() - serverStartTime.getTime()) / 1000;
   
   // Simulate health metrics
   const cpuUsage = 15 + Math.random() * 20;

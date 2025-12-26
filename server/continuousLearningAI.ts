@@ -201,9 +201,9 @@ function initializeBrain(): LearningBrain {
       trailingStopPercent: 0.5,
       scalingFactor: 1.0,
     },
-    learningRate: 0.1,
-    explorationRate: 0.2,
-    confidenceThreshold: 70,
+    learningRate: 0.25, // Increased for faster adaptation
+    explorationRate: 0.15, // Reduced to focus on best strategies
+    confidenceThreshold: 65, // Lowered to take more opportunities
     lastUpdate: new Date(),
     evolutionHistory: [],
   };
@@ -337,14 +337,14 @@ function adjustStrategyWeight(lesson: TradeLesson): LearningInsight | null {
   let adjustment: string;
   
   if (lesson.isWin) {
-    // Increase weight for winning strategy
-    const boost = 0.05 + (lesson.profitPercent / 100) * 0.1;
-    newWeight = Math.min(3.0, currentWeight + boost);
+    // Increase weight for winning strategy - MORE AGGRESSIVE
+    const boost = 0.1 + (lesson.profitPercent / 100) * 0.2;
+    newWeight = Math.min(4.0, currentWeight + boost);
     adjustment = `+${(boost * 100).toFixed(1)}%`;
   } else {
-    // Decrease weight for losing strategy
-    const penalty = 0.03 + (Math.abs(lesson.profitPercent) / 100) * 0.05;
-    newWeight = Math.max(0.2, currentWeight - penalty);
+    // Decrease weight for losing strategy - FASTER PENALTY
+    const penalty = 0.08 + (Math.abs(lesson.profitPercent) / 100) * 0.1;
+    newWeight = Math.max(0.1, currentWeight - penalty);
     adjustment = `-${(penalty * 100).toFixed(1)}%`;
   }
   
@@ -551,15 +551,15 @@ function tuneAdaptiveParameters(lesson: TradeLesson): LearningInsight | null {
     }
   }
   
-  // Adjust confidence thresholds based on trade outcomes
+  // Adjust confidence thresholds based on trade outcomes - MORE RESPONSIVE
   if (lesson.isWin) {
-    // Lower entry threshold slightly for winning conditions
+    // Lower entry threshold more aggressively for winning conditions
     brain.adaptiveParameters.entryConfidenceThreshold = 
-      Math.max(50, brain.adaptiveParameters.entryConfidenceThreshold - 0.5);
+      Math.max(45, brain.adaptiveParameters.entryConfidenceThreshold - 1.5);
   } else {
-    // Raise entry threshold after losses
+    // Raise entry threshold faster after losses
     brain.adaptiveParameters.entryConfidenceThreshold = 
-      Math.min(85, brain.adaptiveParameters.entryConfidenceThreshold + 1);
+      Math.min(80, brain.adaptiveParameters.entryConfidenceThreshold + 2);
   }
   
   // Adjust trailing stop based on how trades close
@@ -652,14 +652,17 @@ function recordEvolution(insights: LearningInsight[]): void {
 function adjustLearningRate(): void {
   const recentWinRate = calculateRecentWinRate();
   
-  if (recentWinRate > 80) {
-    // Performing well - can afford to learn faster
-    brain.learningRate = Math.min(0.3, brain.learningRate * 1.05);
-    brain.explorationRate = Math.max(0.05, brain.explorationRate * 0.95);
-  } else if (recentWinRate < 50) {
-    // Struggling - be more careful, explore more
-    brain.learningRate = Math.max(0.05, brain.learningRate * 0.95);
-    brain.explorationRate = Math.min(0.4, brain.explorationRate * 1.05);
+  if (recentWinRate > 70) {
+    // Performing well - learn faster and exploit more
+    brain.learningRate = Math.min(0.4, brain.learningRate * 1.1);
+    brain.explorationRate = Math.max(0.05, brain.explorationRate * 0.9);
+  } else if (recentWinRate > 50) {
+    // Decent performance - slight boost
+    brain.learningRate = Math.min(0.35, brain.learningRate * 1.05);
+  } else if (recentWinRate < 40) {
+    // Struggling - explore more aggressively to find better strategies
+    brain.learningRate = Math.max(0.15, brain.learningRate * 0.9);
+    brain.explorationRate = Math.min(0.35, brain.explorationRate * 1.15);
   }
 }
 

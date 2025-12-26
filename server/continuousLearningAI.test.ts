@@ -80,7 +80,7 @@ describe("Continuous Learning AI", () => {
       expect(brain.totalLearningCycles).toBe(0);
       expect(brain.totalTradesAnalyzed).toBe(0);
       expect(brain.neuralMemories.length).toBe(0);
-      expect(brain.learningRate).toBe(0.1);
+      expect(brain.learningRate).toBe(0.25); // Increased for faster adaptation
     });
 
     it("should have default strategy weights", () => {

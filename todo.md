@@ -206,3 +206,10 @@
 - [x] Reduced max concurrent trades from 5 to 3
 - [x] Increased confidence threshold from 65% to 75%
 - [x] Integrated real Hyperliquid order execution
+
+
+## AI Learning Tuning
+- [x] Increase learning rate for faster adaptation (0.1 → 0.25)
+- [x] Improve strategy weight adjustments (more aggressive boost/penalty)
+- [x] Add market condition detection (already present, enhanced)
+- [x] Optimize entry/exit timing based on learned patterns (confidence thresholds adjusted)

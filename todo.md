@@ -174,3 +174,8 @@
 - [x] Auto-reconnect on server startup using stored credentials
 - [x] Ensure connection persists after publish/deploy
 - [x] Write tests for persistence feature
+
+## Replace CoinGecko with Hyperliquid Prices
+- [x] Update Live Market Prices component to fetch from Hyperliquid API
+- [x] Display real-time perpetual futures prices from Hyperliquid
+- [x] Test price updates and verify accuracy

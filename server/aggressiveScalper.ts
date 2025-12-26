@@ -16,6 +16,7 @@ import {
   type MarketState,
   type IndicatorSnapshot,
 } from "./continuousLearningAI";
+import { getAllPrices as getHyperliquidPrices, getConnectionStatus } from "./hyperliquid";
 
 export interface ScalpingTrade {
   id: number;
@@ -72,7 +73,7 @@ export interface PriceData {
   volume: number;
 }
 
-// Simulated price data with realistic movements
+// Base prices (used as fallback when Hyperliquid is not connected)
 const CRYPTO_BASE_PRICES: Record<string, number> = {
   BTC: 43250,
   ETH: 2280,
@@ -81,6 +82,58 @@ const CRYPTO_BASE_PRICES: Record<string, number> = {
   XRP: 0.62,
   DOGE: 0.082,
 };
+
+// Symbol mapping from our symbols to Hyperliquid symbols
+const HYPERLIQUID_SYMBOL_MAP: Record<string, string> = {
+  BTC: "BTC",
+  ETH: "ETH",
+  SOL: "SOL",
+  DOGE: "DOGE",
+  XRP: "XRP",
+  ADA: "ADA",
+};
+
+// Cache for Hyperliquid prices
+let hyperliquidPriceCache: Record<string, number> = {};
+let lastHyperliquidFetch = 0;
+const PRICE_CACHE_TTL = 2000; // 2 seconds
+
+/**
+ * Fetch prices from Hyperliquid and update cache
+ */
+async function updateHyperliquidPrices(): Promise<void> {
+  const now = Date.now();
+  if (now - lastHyperliquidFetch < PRICE_CACHE_TTL) {
+    return; // Use cached prices
+  }
+  
+  try {
+    const status = getConnectionStatus();
+    if (!status.connected) {
+      return;
+    }
+    
+    const prices = await getHyperliquidPrices();
+    if (Object.keys(prices).length > 0) {
+      hyperliquidPriceCache = prices;
+      lastHyperliquidFetch = now;
+      console.log("[Scalper] Updated prices from Hyperliquid");
+    }
+  } catch (error) {
+    console.error("[Scalper] Failed to fetch Hyperliquid prices:", error);
+  }
+}
+
+/**
+ * Get real price from Hyperliquid or fallback to simulated
+ */
+function getRealPrice(symbol: string): number {
+  const hlSymbol = HYPERLIQUID_SYMBOL_MAP[symbol];
+  if (hlSymbol && hyperliquidPriceCache[hlSymbol]) {
+    return hyperliquidPriceCache[hlSymbol];
+  }
+  return CRYPTO_BASE_PRICES[symbol] || 100;
+}
 
 // Session state
 let session: ScalpingSession | null = null;
@@ -103,23 +156,36 @@ function initializePriceHistory(): void {
 }
 
 /**
- * Get simulated live price with realistic movement
+ * Get live price - uses Hyperliquid real prices when connected, otherwise simulated
  */
 export function getLivePrice(symbol: string): PriceData {
+  // Try to get real price from Hyperliquid
+  const realPrice = getRealPrice(symbol);
   const basePrice = CRYPTO_BASE_PRICES[symbol] || 100;
+  
+  // Use real price if available, otherwise use base price
+  const currentPrice = realPrice !== basePrice ? realPrice : basePrice;
   
   // Add price to history
   if (!priceHistory[symbol]) {
-    priceHistory[symbol] = [basePrice];
+    priceHistory[symbol] = [currentPrice];
   }
   
-  const lastPrice = priceHistory[symbol][priceHistory[symbol].length - 1] || basePrice;
+  // If we have a real price, use it directly
+  const status = getConnectionStatus();
+  let newPrice: number;
   
-  // Simulate realistic price movement (0.1% to 0.5% variation)
-  const volatility = 0.003; // 0.3% base volatility
-  const trend = Math.random() > 0.5 ? 1 : -1;
-  const change = lastPrice * volatility * trend * (0.5 + Math.random());
-  const newPrice = Math.max(lastPrice * 0.95, Math.min(lastPrice * 1.05, lastPrice + change));
+  if (status.connected && hyperliquidPriceCache[HYPERLIQUID_SYMBOL_MAP[symbol]]) {
+    // Use real Hyperliquid price
+    newPrice = realPrice;
+  } else {
+    // Fallback to simulated movement
+    const lastPrice = priceHistory[symbol][priceHistory[symbol].length - 1] || basePrice;
+    const volatility = 0.003;
+    const trend = Math.random() > 0.5 ? 1 : -1;
+    const change = lastPrice * volatility * trend * (0.5 + Math.random());
+    newPrice = Math.max(lastPrice * 0.95, Math.min(lastPrice * 1.05, lastPrice + change));
+  }
   
   // Keep last 100 prices
   priceHistory[symbol].push(newPrice);
@@ -130,7 +196,8 @@ export function getLivePrice(symbol: string): PriceData {
   const prices = priceHistory[symbol];
   const high24h = Math.max(...prices.slice(-24));
   const low24h = Math.min(...prices.slice(-24));
-  const change24h = ((newPrice - prices[0]) / prices[0]) * 100;
+  const firstPrice = prices[0] || newPrice;
+  const change24h = firstPrice > 0 ? ((newPrice - firstPrice) / firstPrice) * 100 : 0;
   
   return {
     symbol,
@@ -585,9 +652,20 @@ export function resetSession(): ScalpingSession {
 }
 
 /**
- * Get all live prices
+ * Get all live prices - fetches from Hyperliquid when connected
+ */
+export async function getAllPricesAsync(): Promise<PriceData[]> {
+  // Update Hyperliquid prices cache
+  await updateHyperliquidPrices();
+  return Object.keys(CRYPTO_BASE_PRICES).map(symbol => getLivePrice(symbol));
+}
+
+/**
+ * Get all live prices (sync version for compatibility)
  */
 export function getAllPrices(): PriceData[] {
+  // Trigger async update in background
+  updateHyperliquidPrices().catch(console.error);
   return Object.keys(CRYPTO_BASE_PRICES).map(symbol => getLivePrice(symbol));
 }
 

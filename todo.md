@@ -167,3 +167,10 @@
 - [x] Debug connection failure error (superjson response structure issue)
 - [x] Fix wallet authentication (frontend now properly parses tRPC responses)
 - [x] Test connection with testnet (successfully connected to testnet)
+
+
+## Hyperliquid Connection Persistence
+- [x] Store Hyperliquid connection credentials in database (encrypted)
+- [x] Auto-reconnect on server startup using stored credentials
+- [x] Ensure connection persists after publish/deploy
+- [x] Write tests for persistence feature

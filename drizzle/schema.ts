@@ -187,3 +187,17 @@ export const competitionParticipants = mysqlTable("competition_participants", {
 
 export type CompetitionParticipant = typeof competitionParticipants.$inferSelect;
 export type InsertCompetitionParticipant = typeof competitionParticipants.$inferInsert;
+
+// Hyperliquid Connection - Persists exchange connection credentials
+export const hyperliquidConnection = mysqlTable("hyperliquid_connection", {
+  id: int("id").autoincrement().primaryKey(),
+  encryptedPrivateKey: text("encryptedPrivateKey").notNull(), // Encrypted private key
+  walletAddress: varchar("walletAddress", { length: 64 }).notNull(),
+  useMainnet: int("useMainnet").notNull().default(0), // 0 = testnet, 1 = mainnet
+  isActive: int("isActive").notNull().default(1), // 0 = inactive, 1 = active
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type HyperliquidConnection = typeof hyperliquidConnection.$inferSelect;
+export type InsertHyperliquidConnection = typeof hyperliquidConnection.$inferInsert;

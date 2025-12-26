@@ -9,6 +9,8 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { startTrading, executeTradingCycle, getSession } from "../aggressiveScalper";
 import { loadBrainFromDatabase, saveBrainToDatabase } from "../brainPersistence";
+import { getActiveHyperliquidConnection } from "../db";
+import { initializeHyperliquid, getConnectionStatus } from "../hyperliquid";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -75,6 +77,30 @@ async function autoStartTradingBot() {
   console.log('[AutoStart] Initializing trading bot...');
   
   try {
+    // Auto-reconnect Hyperliquid if there's a saved connection
+    console.log('[AutoStart] Checking for saved Hyperliquid connection...');
+    try {
+      const savedConnection = await getActiveHyperliquidConnection();
+      if (savedConnection) {
+        console.log('[AutoStart] Found saved Hyperliquid connection, reconnecting...');
+        const success = initializeHyperliquid({
+          privateKey: savedConnection.privateKey,
+          useMainnet: savedConnection.useMainnet,
+        });
+        if (success) {
+          const status = getConnectionStatus();
+          console.log(`[AutoStart] Hyperliquid reconnected successfully to ${status.network}`);
+          console.log(`[AutoStart] Wallet: ${status.wallet}`);
+        } else {
+          console.error('[AutoStart] Failed to reconnect to Hyperliquid');
+        }
+      } else {
+        console.log('[AutoStart] No saved Hyperliquid connection found');
+      }
+    } catch (hlError) {
+      console.error('[AutoStart] Error reconnecting Hyperliquid:', hlError);
+    }
+    
     // Load AI brain state from database
     console.log('[AutoStart] Loading AI brain from database...');
     const brainLoaded = await loadBrainFromDatabase();

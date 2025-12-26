@@ -25,6 +25,11 @@ import {
   disconnect,
   switchNetwork,
 } from "../hyperliquid";
+import {
+  saveHyperliquidConnection,
+  getActiveHyperliquidConnection,
+  deactivateHyperliquidConnection,
+} from "../db";
 
 export const hyperliquidRouter = router({
   // Connect to Hyperliquid with wallet
@@ -44,6 +49,20 @@ export const hyperliquidRouter = router({
       const status = getConnectionStatus();
       console.log(`[Hyperliquid Router] Connection result: ${success}, error: ${status.error}`);
       
+      // Save connection to database for persistence
+      if (success && status.wallet) {
+        try {
+          await saveHyperliquidConnection(
+            input.privateKey,
+            status.wallet,
+            input.useMainnet
+          );
+          console.log(`[Hyperliquid Router] Connection saved to database`);
+        } catch (dbError) {
+          console.error(`[Hyperliquid Router] Failed to save connection to database:`, dbError);
+        }
+      }
+      
       return {
         success,
         status,
@@ -55,6 +74,12 @@ export const hyperliquidRouter = router({
   disconnect: publicProcedure
     .mutation(async () => {
       disconnect();
+      // Deactivate connection in database
+      try {
+        await deactivateHyperliquidConnection();
+      } catch (dbError) {
+        console.error(`[Hyperliquid Router] Failed to deactivate connection in database:`, dbError);
+      }
       return { success: true };
     }),
 

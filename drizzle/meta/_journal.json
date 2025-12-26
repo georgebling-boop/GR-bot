@@ -15,6 +15,13 @@
       "when": 1766691834014,
       "tag": "0001_many_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1766707265175,
+      "tag": "0002_fine_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }

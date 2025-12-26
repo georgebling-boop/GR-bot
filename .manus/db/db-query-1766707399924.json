@@ -1,0 +1,9 @@
+{
+  "query": "SELECT id, walletAddress, useMainnet, isActive, createdAt FROM hyperliquid_connection ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26R39AzKREgDHGe.root --database HoZ9gTDUKj6F92GhFqkKTk --execute SELECT id, walletAddress, useMainnet, isActive, createdAt FROM hyperliquid_connection ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 63
+}

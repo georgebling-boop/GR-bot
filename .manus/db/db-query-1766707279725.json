@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `hyperliquid_connection` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `encryptedPrivateKey` text NOT NULL,\n  `walletAddress` varchar(64) NOT NULL,\n  `useMainnet` int NOT NULL DEFAULT 0,\n  `isActive` int NOT NULL DEFAULT 1,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `hyperliquid_connection_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26R39AzKREgDHGe.root --database HoZ9gTDUKj6F92GhFqkKTk --execute CREATE TABLE IF NOT EXISTS `hyperliquid_connection` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `encryptedPrivateKey` text NOT NULL,\n  `walletAddress` varchar(64) NOT NULL,\n  `useMainnet` int NOT NULL DEFAULT 0,\n  `isActive` int NOT NULL DEFAULT 1,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  CONSTRAINT `hyperliquid_connection_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 209
+}

@@ -4,13 +4,28 @@ import { observable } from "@trpc/server/observable";
 import type { TRPCLink } from "@trpc/client";
 import type { AppRouter } from "../../../server/routers";
 
+// Mock trade interfaces
+interface MockTrade {
+  id: string;
+  symbol: string;
+  entryPrice: number;
+  exitPrice?: number;
+  quantity: number;
+  stake: number;
+  profit?: number;
+  profitPercent?: number;
+  strategy: string;
+  openedAt: string;
+  closedAt?: string;
+}
+
 // Minimal in-memory mock state
 let balance = 800;
 let win = 0;
 let loss = 0;
 let totalTrades = 0;
-let openTrades: Array<any> = [];
-let closedTrades: Array<any> = [];
+let openTrades: MockTrade[] = [];
+let closedTrades: MockTrade[] = [];
 let strategyStats = [
   { name: "momentum_scalp", trades: 12, winRate: 58, totalProfit: 42.5 },
   { name: "mean_reversion", trades: 8, winRate: 50, totalProfit: -12.3 },
@@ -110,17 +125,15 @@ const mockLink: TRPCLink<AppRouter> = () => {
           result = { ok: true };
         } else {
           // Default: unauthorized for unknown paths
-          // Use @ts-ignore to bypass the type error for mock purposes
-          // @ts-ignore
-          observer.error(new Error(UNAUTHED_ERR_MSG));
+          // Observer.error accepts any value, so this is safe
+          observer.error(new Error(UNAUTHED_ERR_MSG) as any);
           return;
         }
         
         observer.next({ result: { type: 'data', data: result } });
         observer.complete();
       } catch (error) {
-        // @ts-ignore
-        observer.error(error as Error);
+        observer.error(error as any);
       }
     });
   };

@@ -171,10 +171,10 @@ async function autoStartTradingBot() {
 }
 
 /**
- * Continuous trading loop - runs every 10 seconds
+ * Continuous trading loop - runs every 5 seconds for faster trading
  */
 function startContinuousTradingLoop() {
-  const TRADING_INTERVAL = 10000; // 10 seconds
+  const TRADING_INTERVAL = 5000; // 5 seconds (faster cycle for quicker trades)
   
   setInterval(async () => {
     try {

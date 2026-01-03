@@ -632,7 +632,7 @@ export async function executeTradingCycle(): Promise<{
       const analysis = analyzeScalpingOpportunity(symbol);
       
       // Use AI's adaptive confidence threshold (dynamically adjusted based on performance)
-      const aiThreshold = getOptimizedParameters().entryConfidenceThreshold || 75;
+      const aiThreshold = getOptimizedParameters().entryConfidenceThreshold || 65; // Lower threshold for more trades
       if (analysis.action === "BUY" && analysis.confidence >= aiThreshold) { // AI-optimized threshold
         const priceData = getLivePrice(symbol);
         const currentPrice = priceData.price;
@@ -644,7 +644,7 @@ export async function executeTradingCycle(): Promise<{
         if (stake >= 5 && session.currentBalance >= stake) { // Minimum $5 trade
           const quantity = stake / currentPrice;
           const stopLoss = currentPrice * 0.99; // 1% stop loss (tighter)
-          const takeProfit = currentPrice * 1.01; // 1% take profit (smaller but safer)
+          const takeProfit = currentPrice * 1.005; // 0.5% take profit (faster profit-taking)
           
           // Try to place real order on Hyperliquid if connected
           const hlStatus = getConnectionStatus();

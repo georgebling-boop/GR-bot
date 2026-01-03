@@ -30,6 +30,10 @@ import {
 // - 2% stop loss maintained for 1:1 risk-reward ratio
 // - 5-second cycle (reduced from 10s) for more responsive trading
 // Trade-off: More frequent trades and API calls, but faster profit realization
+
+const CLOSE_RETRY_DELAY_MS = 1000; // Delay before retrying failed close operations
+const POSITION_LOG_INTERVAL_MS = 30000; // Log position status every 30 seconds
+
 interface TradingConfig {
   maxPositions: number;
   positionSizePercent: number;
@@ -54,6 +58,7 @@ let config = { ...DEFAULT_CONFIG };
 let isRunning = false;
 let tradingInterval: NodeJS.Timeout | null = null;
 let lastCycleLogTime = 0; // Track last time we logged cycle status
+let lastPositionLogTime: Record<string, number> = {}; // Track last position log per coin
 
 // Trade tracking
 interface LiveTrade {
@@ -337,7 +342,7 @@ async function checkExitSignals(prices: Record<string, number>): Promise<void> {
         } else {
           console.error(`[HyperliquidEngine] ✗ Failed to close ${coin}: ${result.error || 'Unknown error'}`);
           // Retry once after a short delay
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, CLOSE_RETRY_DELAY_MS));
           const retryResult = await closePosition(coin);
           if (retryResult.success) {
             console.log(`[HyperliquidEngine] ✓ Retry successful: Closed ${coin}`);
@@ -349,10 +354,11 @@ async function checkExitSignals(prices: Record<string, number>): Promise<void> {
         console.error(`[HyperliquidEngine] ✗ Error closing ${coin}:`, error);
       }
     } else {
-      // Log current position status every 30 seconds (approx every 6 cycles at 5s interval)
-      const tradeAge = Date.now() - trade.entryTime.getTime();
-      if (tradeAge % 30000 < 5000) { // Within 5 seconds of 30s intervals
+      // Log current position status every 30 seconds
+      const now = Date.now();
+      if (!lastPositionLogTime[coin] || now - lastPositionLogTime[coin] > POSITION_LOG_INTERVAL_MS) {
         console.log(`[HyperliquidEngine] ${coin} ${trade.side} @ ${trade.entryPrice.toFixed(2)} -> ${currentPrice.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%) | TP: ${trade.takeProfit.toFixed(2)} | SL: ${trade.stopLoss.toFixed(2)}`);
+        lastPositionLogTime[coin] = now;
       }
     }
   }
@@ -370,7 +376,10 @@ async function lookForEntries(
     if (activeTrades.has(coin)) continue;
 
     const currentPrice = prices[coin];
-    if (!currentPrice) continue;
+    if (!currentPrice) {
+      console.log(`[HyperliquidEngine] ${coin} - No price available, skipping`);
+      continue;
+    }
 
     // Get AI signal
     const marketState = getMarketStateFromPrices(prices, coin);
@@ -378,8 +387,17 @@ async function lookForEntries(
     const signal = getEntryConfidence(coin, "hyperliquid_ai", marketState, indicators);
     
     // Only trade if confidence is high enough and AI recommends entry
-    if (signal.confidence < config.minConfidence * 100) continue;
-    if (!signal.shouldEnter) continue;
+    if (signal.confidence < config.minConfidence * 100) {
+      // Occasionally log why we're not entering
+      if (signal.confidence > config.minConfidence * 80) { // Within 20% of threshold
+        console.log(`[HyperliquidEngine] ${coin} - Confidence too low: ${signal.confidence.toFixed(1)}% (need ${(config.minConfidence * 100).toFixed(1)}%)`);
+      }
+      continue;
+    }
+    if (!signal.shouldEnter) {
+      console.log(`[HyperliquidEngine] ${coin} - AI recommends no entry despite confidence ${signal.confidence.toFixed(1)}%`);
+      continue;
+    }
 
     // Determine direction based on market state
     const side = marketState.trend === "bullish" ? "buy" : "sell";
@@ -388,45 +406,96 @@ async function lookForEntries(
     const positionValue = accountValue * (config.positionSizePercent / 100);
     const size = positionValue / currentPrice;
 
-    // Set leverage
-    await setLeverage(coin, config.defaultLeverage);
-    console.log(`[HyperliquidEngine] Opening ${side} ${coin} - Confidence: ${(signal.confidence * 100).toFixed(1)}%`);
-    
-    const result = await placeMarketOrder(coin, side, size);
-    
-    if (result.success) {
-      const entryPrice = result.avgPrice || currentPrice;
-      
-      // Calculate stop loss and take profit
-      const stopLoss = side === "buy"
-        ? entryPrice * (1 - config.stopLossPercent / 100)
-        : entryPrice * (1 + config.stopLossPercent / 100);
-      
-      const takeProfit = side === "buy"
-        ? entryPrice * (1 + config.takeProfitPercent / 100)
-        : entryPrice * (1 - config.takeProfitPercent / 100);
+    console.log(`[HyperliquidEngine] 🔔 ENTRY SIGNAL: ${coin} ${side.toUpperCase()}`);
+    console.log(`[HyperliquidEngine]   Confidence: ${signal.confidence.toFixed(1)}%, Trend: ${marketState.trend}, Price: $${currentPrice.toFixed(2)}`);
+    console.log(`[HyperliquidEngine]   Position size: ${size.toFixed(4)} ${coin} ($${positionValue.toFixed(2)} at ${config.defaultLeverage}x leverage)`);
 
-      // Place stop loss order
-      await placeStopLoss(coin, side === "buy" ? "sell" : "buy", size, stopLoss);
+    try {
+      // Set leverage
+      await setLeverage(coin, config.defaultLeverage);
+      console.log(`[HyperliquidEngine]   ✓ Leverage set to ${config.defaultLeverage}x`);
       
-      // Place take profit order
-      await placeTakeProfit(coin, side === "buy" ? "sell" : "buy", size, takeProfit);
+      const result = await placeMarketOrder(coin, side, size);
+      
+      if (result.success) {
+        const entryPrice = result.avgPrice || currentPrice;
+        
+        // Calculate stop loss and take profit
+        const stopLoss = side === "buy"
+          ? entryPrice * (1 - config.stopLossPercent / 100)
+          : entryPrice * (1 + config.stopLossPercent / 100);
+        
+        const takeProfit = side === "buy"
+          ? entryPrice * (1 + config.takeProfitPercent / 100)
+          : entryPrice * (1 - config.takeProfitPercent / 100);
 
-      // Track the trade
-      const trade: LiveTrade = {
-        id: `${coin}-${Date.now()}`,
-        coin,
-        side: side === "buy" ? "long" : "short",
-        entryPrice,
-        size: result.filledSize || size,
-        stopLoss,
-        takeProfit,
-        entryTime: new Date(),
-        leverage: config.defaultLeverage,
-      };
-      
-      activeTrades.set(coin, trade);
-      console.log(`[HyperliquidEngine] Opened ${side} ${coin} at ${entryPrice}`);
+        console.log(`[HyperliquidEngine]   ✓ Market order filled at $${entryPrice.toFixed(2)}`);
+
+        // Place stop loss order
+        try {
+          await placeStopLoss(coin, side === "buy" ? "sell" : "buy", size, stopLoss);
+          console.log(`[HyperliquidEngine]   ✓ Stop loss placed at $${stopLoss.toFixed(2)} (${config.stopLossPercent}%)`);
+        } catch (error) {
+          console.error(`[HyperliquidEngine]   ✗ Failed to place stop loss:`, error);
+        }
+        
+        // Place take profit order
+        try {
+          await placeTakeProfit(coin, side === "buy" ? "sell" : "buy", size, takeProfit);
+          console.log(`[HyperliquidEngine]   ✓ Take profit placed at $${takeProfit.toFixed(2)} (${config.takeProfitPercent}%)`);
+        } catch (error) {
+          console.error(`[HyperliquidEngine]   ✗ Failed to place take profit:`, error);
+        }
+
+        // Track the trade
+        const trade: LiveTrade = {
+          id: `${coin}-${Date.now()}`,
+          coin,
+          side: side === "buy" ? "long" : "short",
+          entryPrice,
+          size: result.filledSize || size,
+          stopLoss,
+          takeProfit,
+          entryTime: new Date(),
+          leverage: config.defaultLeverage,
+        };
+        
+        activeTrades.set(coin, trade);
+        console.log(`[HyperliquidEngine] ✅ TRADE OPENED: ${side.toUpperCase()} ${coin} at $${entryPrice.toFixed(2)} | SL: $${stopLoss.toFixed(2)} | TP: $${takeProfit.toFixed(2)}`);
+        console.log(`[HyperliquidEngine]   Reasons: ${signal.reasons.join(', ')}`);
+      } else {
+        console.error(`[HyperliquidEngine] ✗ Failed to open ${coin} position: ${result.error || 'Unknown error'}`);
+        // Retry once
+        console.log(`[HyperliquidEngine]   Retrying order...`);
+        await new Promise(resolve => setTimeout(resolve, CLOSE_RETRY_DELAY_MS));
+        const retryResult = await placeMarketOrder(coin, side, size);
+        if (retryResult.success) {
+          console.log(`[HyperliquidEngine]   ✓ Retry successful`);
+          // Process the successful retry (similar to above but abbreviated for space)
+          const entryPrice = retryResult.avgPrice || currentPrice;
+          const stopLoss = side === "buy" ? entryPrice * (1 - config.stopLossPercent / 100) : entryPrice * (1 + config.stopLossPercent / 100);
+          const takeProfit = side === "buy" ? entryPrice * (1 + config.takeProfitPercent / 100) : entryPrice * (1 - config.takeProfitPercent / 100);
+          await placeStopLoss(coin, side === "buy" ? "sell" : "buy", size, stopLoss);
+          await placeTakeProfit(coin, side === "buy" ? "sell" : "buy", size, takeProfit);
+          const trade: LiveTrade = {
+            id: `${coin}-${Date.now()}`,
+            coin,
+            side: side === "buy" ? "long" : "short",
+            entryPrice,
+            size: retryResult.filledSize || size,
+            stopLoss,
+            takeProfit,
+            entryTime: new Date(),
+            leverage: config.defaultLeverage,
+          };
+          activeTrades.set(coin, trade);
+          console.log(`[HyperliquidEngine] ✅ TRADE OPENED (retry): ${side.toUpperCase()} ${coin} at $${entryPrice.toFixed(2)}`);
+        } else {
+          console.error(`[HyperliquidEngine]   ✗ Retry also failed: ${retryResult.error || 'Unknown error'}`);
+        }
+      }
+    } catch (error) {
+      console.error(`[HyperliquidEngine] ✗ Error opening ${coin} position:`, error);
     }
   }
 }

@@ -87,15 +87,23 @@ const tradeHistory: Array<{
  */
 export function initializeTradingEngine(
   privateKey: string,
-  useMainnet: boolean = false,
+  useMainnet: boolean = true, // CHANGED: Default to mainnet for live trading
   customConfig?: Partial<TradingConfig>
 ): boolean {
-  // Initialize Hyperliquid connection
+  // Initialize Hyperliquid connection for LIVE TRADING
   const connected = initializeHyperliquid({ privateKey, useMainnet });
   
   if (!connected) {
     console.error("[HyperliquidEngine] Failed to connect to Hyperliquid");
     return false;
+  }
+  
+  const status = getConnectionStatus();
+  console.log(`[HyperliquidEngine] ⚠️  LIVE TRADING MODE: Connected to ${status.network.toUpperCase()}`);
+  console.log(`[HyperliquidEngine] Wallet: ${status.wallet}`);
+  
+  if (!useMainnet) {
+    console.warn("[HyperliquidEngine] ⚠️  WARNING: Running on testnet - no real money at risk");
   }
 
   // Apply custom config
@@ -179,7 +187,11 @@ async function executeTradingCycle(): Promise<void> {
     // Log cycle execution (every 60 seconds)
     const now = Date.now();
     if (now - lastCycleLogTime > 60000) {
-      console.log(`[HyperliquidEngine] Trading cycle running - Active trades: ${activeTrades.size}, Account value: $${accountState.marginSummary.accountValue.toFixed(2)}`);
+      const status = getConnectionStatus();
+      console.log(`[HyperliquidEngine] 🔄 Trading cycle running on ${status.network.toUpperCase()}`);
+      console.log(`[HyperliquidEngine]   Active trades: ${activeTrades.size}/${config.maxPositions}`);
+      console.log(`[HyperliquidEngine]   Account value: $${accountState.marginSummary.accountValue.toFixed(2)}`);
+      console.log(`[HyperliquidEngine]   Available margin: $${accountState.marginSummary.totalMarginUsed.toFixed(2)} used`);
       lastCycleLogTime = now;
     }
 
@@ -206,12 +218,23 @@ async function executeTradingCycle(): Promise<void> {
  * Sync active trades with actual positions
  */
 async function syncPositions(positions: Position[]): Promise<void> {
+  // Log all current positions for debugging
+  if (positions.length > 0) {
+    console.log(`[HyperliquidEngine] 📊 Current positions:`);
+    for (const pos of positions) {
+      if (pos.size !== 0) {
+        console.log(`[HyperliquidEngine]   ${pos.coin}: ${pos.size > 0 ? 'LONG' : 'SHORT'} ${Math.abs(pos.size)} @ $${pos.entryPrice.toFixed(2)} (PnL: $${pos.unrealizedPnl.toFixed(2)})`);
+      }
+    }
+  }
+  
   for (const position of positions) {
     if (position.size === 0) continue;
 
     const existingTrade = activeTrades.get(position.coin);
     if (!existingTrade) {
       // Position exists but we don't have a trade record - create one
+      console.log(`[HyperliquidEngine] 📝 Syncing new position: ${position.coin}`);
       const trade: LiveTrade = {
         id: `${position.coin}-${Date.now()}`,
         coin: position.coin,
@@ -236,12 +259,15 @@ async function syncPositions(positions: Position[]): Promise<void> {
     const position = positions.find(p => p.coin === coin);
     if (!position || position.size === 0) {
       // Position closed - record in history
+      console.log(`[HyperliquidEngine] 📋 Position ${coin} no longer exists - recording exit`);
       const prices = await getAllPrices();
       const exitPrice = prices[coin] || trade.entryPrice;
       const pnl = trade.side === "long"
         ? (exitPrice - trade.entryPrice) * trade.size
         : (trade.entryPrice - exitPrice) * trade.size;
       const pnlPercent = (pnl / (trade.entryPrice * trade.size)) * 100;
+
+      console.log(`[HyperliquidEngine] 💰 ${coin} closed: ${pnl >= 0 ? 'PROFIT' : 'LOSS'} $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`);
 
       tradeHistory.push({
         trade,

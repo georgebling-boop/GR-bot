@@ -75,7 +75,7 @@ async function startServer() {
       };
       res.status(200).json(payload);
     } catch (err) {
-      res.status(200).json({
+      res.status(503).json({
         ok: false,
         time: new Date().toISOString(),
         error: (err as Error)?.message ?? "unknown",

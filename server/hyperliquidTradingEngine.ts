@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: TradingConfig = {
   positionSizePercent: 10, // 10% of account per position
   defaultLeverage: 5,
   stopLossPercent: 2, // 2% stop loss
-  takeProfitPercent: 4, // 4% take profit
+  takeProfitPercent: 2, // 2% take profit (reduced from 4% for faster profit-taking)
   tradingPairs: ["BTC", "ETH", "SOL", "AVAX", "ARB"],
   minConfidence: 0.65, // Minimum AI confidence to trade
 };
@@ -116,14 +116,14 @@ export function startTrading(): void {
   isRunning = true;
   console.log("[HyperliquidEngine] Starting automated trading...");
 
-  // Run trading cycle every 10 seconds
+  // Run trading cycle every 5 seconds (reduced from 10s for faster trading)
   tradingInterval = setInterval(async () => {
     try {
       await executeTradingCycle();
     } catch (error) {
       console.error("[HyperliquidEngine] Trading cycle error:", error);
     }
-  }, 10000);
+  }, 5000); // 5 seconds for quicker trade execution
 
   // Run immediately
   executeTradingCycle();

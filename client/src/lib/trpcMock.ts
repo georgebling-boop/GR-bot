@@ -1,5 +1,8 @@
 import superjson from "superjson";
 import { trpc } from "./trpc";
+import { observable } from "@trpc/server/observable";
+import type { TRPCLink } from "@trpc/client";
+import type { AppRouter } from "../../../server/routers";
 
 // Minimal in-memory mock state
 let balance = 800;
@@ -44,87 +47,89 @@ setInterval(() => {
 
 const UNAUTHED_ERR_MSG = "Unauthorized"; // stays consistent with client handler
 
-// Create a simple mock link by overriding queries/mutations used by the UI
-export function createMockClient() {
-  const mock = trpc.createClient({
-    links: [
-      // A basic mock link that returns superjson-encoded results
-      () => ({
-        prev: null,
-        next: null,
-        runtime: { transformer: superjson },
-        async op(op) {
-          const { path } = op;
-          // Routes used in Dashboard/ViewOnly
-          if (path === "scalper.getSession") {
-            const startingBalance = 800;
-            const totalProfit = balance - startingBalance;
-            const totalProfitPercent = (totalProfit / startingBalance) * 100;
-            const winRate = totalTrades === 0 ? 0 : (win / totalTrades) * 100;
-            return {
-              result: {
-                data: superjson.serialize({
-                  session: {
-                    startingBalance,
-                    currentBalance: balance,
-                    totalProfit,
-                    totalProfitPercent,
-                    winRate,
-                    winningTrades: win,
-                    losingTrades: loss,
-                    totalTrades,
-                    openTrades,
-                    closedTrades,
-                    strategyStats,
-                  },
-                }),
-              },
-            } as any;
-          }
-          if (path === "scalper.getPrices") {
-            return { result: { data: superjson.serialize({ prices }) } } as any;
-          }
-          if (path === "scalper.initialize") {
-            balance = 800;
-            win = 0; loss = 0; totalTrades = 0;
-            openTrades = [];
-            closedTrades = [];
-            return { result: { data: superjson.serialize({ ok: true }) } } as any;
-          }
-          if (path === "scalper.start") {
-            // add a fake open trade
+// Create a mock link that handles operations
+const mockLink: TRPCLink<AppRouter> = () => {
+  return ({ op }) => {
+    return observable((observer) => {
+      const { path } = op;
+      
+      let result: any;
+      
+      try {
+        // Routes used in Dashboard/ViewOnly
+        if (path === "scalper.getSession") {
+          const startingBalance = 800;
+          const totalProfit = balance - startingBalance;
+          const totalProfitPercent = (totalProfit / startingBalance) * 100;
+          const winRate = totalTrades === 0 ? 0 : (win / totalTrades) * 100;
+          result = {
+            session: {
+              startingBalance,
+              currentBalance: balance,
+              totalProfit,
+              totalProfitPercent,
+              winRate,
+              winningTrades: win,
+              losingTrades: loss,
+              totalTrades,
+              openTrades,
+              closedTrades,
+              strategyStats,
+            },
+          };
+        } else if (path === "scalper.getPrices") {
+          result = { prices };
+        } else if (path === "scalper.initialize") {
+          balance = 800;
+          win = 0; loss = 0; totalTrades = 0;
+          openTrades = [];
+          closedTrades = [];
+          result = { ok: true };
+        } else if (path === "scalper.start") {
+          // add a fake open trade
+          const sym = symbols[Math.floor(Math.random() * symbols.length)];
+          const entryPrice = prices.find((p) => p.symbol === sym)?.price || 100;
+          openTrades.push({
+            id: String(Date.now()), symbol: sym, entryPrice, quantity: 0.1, stake: 50,
+            strategy: "momentum_scalp", openedAt: new Date().toISOString(),
+          });
+          result = { ok: true };
+        } else if (path === "scalper.stop") {
+          result = { ok: true };
+        } else if (path === "scalper.executeCycle") {
+          // nudge prices and maybe open a trade
+          tickPrices();
+          if (Math.random() < 0.3) {
             const sym = symbols[Math.floor(Math.random() * symbols.length)];
             const entryPrice = prices.find((p) => p.symbol === sym)?.price || 100;
-            openTrades.push({
-              id: String(Date.now()), symbol: sym, entryPrice, quantity: 0.1, stake: 50,
-              strategy: "momentum_scalp", openedAt: new Date().toISOString(),
-            });
-            return { result: { data: superjson.serialize({ ok: true }) } } as any;
+            openTrades.push({ id: String(Date.now()), symbol: sym, entryPrice, quantity: 0.05, stake: 25, strategy: "momentum_scalp", openedAt: new Date().toISOString() });
           }
-          if (path === "scalper.stop") {
-            return { result: { data: superjson.serialize({ ok: true }) } } as any;
-          }
-          if (path === "scalper.executeCycle") {
-            // nudge prices and maybe open a trade
-            tickPrices();
-            if (Math.random() < 0.3) {
-              const sym = symbols[Math.floor(Math.random() * symbols.length)];
-              const entryPrice = prices.find((p) => p.symbol === sym)?.price || 100;
-              openTrades.push({ id: String(Date.now()), symbol: sym, entryPrice, quantity: 0.05, stake: 25, strategy: "momentum_scalp", openedAt: new Date().toISOString() });
-            }
-            return { result: { data: superjson.serialize({ actions: ["CYCLE EXECUTED"] }) } } as any;
-          }
-          if (path === "scalper.reset") {
-            balance = 800; win = 0; loss = 0; totalTrades = 0; openTrades = []; closedTrades = [];
-            return { result: { data: superjson.serialize({ ok: true }) } } as any;
-          }
+          result = { actions: ["CYCLE EXECUTED"] };
+        } else if (path === "scalper.reset") {
+          balance = 800; win = 0; loss = 0; totalTrades = 0; openTrades = []; closedTrades = [];
+          result = { ok: true };
+        } else {
           // Default: unauthorized for unknown paths
-          return {
-            result: { error: superjson.serialize({ message: UNAUTHED_ERR_MSG }) },
-          } as any;
-        },
-      }),
-    ],
+          // Use @ts-ignore to bypass the type error for mock purposes
+          // @ts-ignore
+          observer.error(new Error(UNAUTHED_ERR_MSG));
+          return;
+        }
+        
+        observer.next({ result: { type: 'data', data: result } });
+        observer.complete();
+      } catch (error) {
+        // @ts-ignore
+        observer.error(error as Error);
+      }
+    });
+  };
+};
+
+// Create a simple mock client
+export function createMockClient() {
+  const mock = trpc.createClient({
+    links: [mockLink],
   });
   return mock;
 }

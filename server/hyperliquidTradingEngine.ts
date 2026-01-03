@@ -43,7 +43,7 @@ interface TradingConfig {
 const DEFAULT_CONFIG: TradingConfig = {
   maxPositions: 5,
   positionSizePercent: 10, // 10% of account per position
-  defaultLeverage: 5,
+  defaultLeverage: 7, // Increased from 5x for higher profit potential (with proportionally higher risk)
   stopLossPercent: 2, // 2% stop loss
   takeProfitPercent: 2, // 2% take profit (reduced from 4% for faster profit-taking)
   tradingPairs: ["BTC", "ETH", "SOL", "AVAX", "ARB"],

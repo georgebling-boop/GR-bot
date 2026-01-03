@@ -2,6 +2,17 @@
  * Continuous Learning AI Engine
  * Learns from EVERY single trade in real-time with unlimited improvement potential
  * No caps on how fast or intelligent it can become
+ * 
+ * ENHANCED VERSION - Improvements for higher win rates:
+ * - More aggressive pattern reinforcement (15x weight growth vs 10x)
+ * - Faster strategy weight adjustments (5x max vs 4x, 0.05 min vs 0.1)
+ * - Enhanced pattern matching with multi-factor scoring
+ * - Stronger confidence signals from proven patterns
+ * - Better risk management with faster adaptation
+ * - Increased learning rate (0.35 vs 0.25) for quicker improvements
+ * - Lower exploration rate (0.10 vs 0.15) to exploit winning strategies
+ * - More sophisticated technical indicator analysis
+ * - Ensemble pattern matching with weighted voting
  */
 
 // ============= NEURAL MEMORY TYPES =============
@@ -201,9 +212,9 @@ function initializeBrain(): LearningBrain {
       trailingStopPercent: 0.5,
       scalingFactor: 1.0,
     },
-    learningRate: 0.25, // Increased for faster adaptation
-    explorationRate: 0.15, // Reduced to focus on best strategies
-    confidenceThreshold: 65, // Lowered to take more opportunities
+    learningRate: 0.35, // Increased for FASTER adaptation and quicker learning
+    explorationRate: 0.10, // Further reduced to exploit winning patterns more
+    confidenceThreshold: 60, // Lowered to take more high-quality opportunities
     lastUpdate: new Date(),
     evolutionHistory: [],
   };
@@ -277,13 +288,17 @@ function learnPattern(lesson: TradeLesson): LearningInsight | null {
     existingMemory.successRate = existingMemory.successRate * (1 - alpha) + newSuccess * alpha;
     existingMemory.avgProfit = existingMemory.avgProfit * (1 - alpha) + lesson.profitPercent * alpha;
     
-    // Adjust weight based on performance
+    // Adjust weight based on performance - MORE AGGRESSIVE REINFORCEMENT
     if (lesson.isWin) {
-      existingMemory.weight = Math.min(10, existingMemory.weight * 1.1);
-      existingMemory.confidence = Math.min(99, existingMemory.confidence + 1);
+      // Bigger boost for wins, especially profitable ones
+      const profitBoost = 1 + (Math.abs(lesson.profitPercent) / 10);
+      existingMemory.weight = Math.min(15, existingMemory.weight * (1.15 * profitBoost));
+      existingMemory.confidence = Math.min(99, existingMemory.confidence + 2);
     } else {
-      existingMemory.weight = Math.max(0.1, existingMemory.weight * 0.95);
-      existingMemory.confidence = Math.max(10, existingMemory.confidence - 2);
+      // Faster penalty for losses to avoid bad patterns
+      const lossMultiplier = 1 + (Math.abs(lesson.profitPercent) / 20);
+      existingMemory.weight = Math.max(0.05, existingMemory.weight * (0.9 / lossMultiplier));
+      existingMemory.confidence = Math.max(5, existingMemory.confidence - 3);
     }
     
     return {
@@ -337,14 +352,16 @@ function adjustStrategyWeight(lesson: TradeLesson): LearningInsight | null {
   let adjustment: string;
   
   if (lesson.isWin) {
-    // Increase weight for winning strategy - MORE AGGRESSIVE
-    const boost = 0.1 + (lesson.profitPercent / 100) * 0.2;
-    newWeight = Math.min(4.0, currentWeight + boost);
+    // Increase weight for winning strategy - EVEN MORE AGGRESSIVE
+    const profitMultiplier = 1 + (lesson.profitPercent / 50); // Bigger boost for larger profits
+    const boost = (0.15 + (lesson.profitPercent / 100) * 0.3) * profitMultiplier;
+    newWeight = Math.min(5.0, currentWeight + boost); // Increased max weight
     adjustment = `+${(boost * 100).toFixed(1)}%`;
   } else {
-    // Decrease weight for losing strategy - FASTER PENALTY
-    const penalty = 0.08 + (Math.abs(lesson.profitPercent) / 100) * 0.1;
-    newWeight = Math.max(0.1, currentWeight - penalty);
+    // Decrease weight for losing strategy - MUCH FASTER PENALTY
+    const lossMultiplier = 1 + (Math.abs(lesson.profitPercent) / 30);
+    const penalty = (0.12 + (Math.abs(lesson.profitPercent) / 100) * 0.15) * lossMultiplier;
+    newWeight = Math.max(0.05, currentWeight - penalty); // Lower minimum to really penalize bad strategies
     adjustment = `-${(penalty * 100).toFixed(1)}%`;
   }
   
@@ -487,35 +504,47 @@ function optimizeTiming(lesson: TradeLesson): LearningInsight | null {
 }
 
 /**
- * Risk Parameter Adjustment - Learn optimal risk settings
+ * Risk Parameter Adjustment - Learn optimal risk settings - ENHANCED
  */
 function adjustRiskParameters(lesson: TradeLesson): LearningInsight | null {
-  const alpha = 0.05; // Slow adjustment for risk parameters
+  const alpha = 0.08; // Faster adjustment for quicker learning
   
   if (lesson.isWin) {
-    // Successful trade - slightly increase risk tolerance
+    // Successful trade - moderately increase risk tolerance
     if (lesson.profitPercent > brain.adaptiveParameters.takeProfitPercent) {
       brain.riskLearning.optimalTakeProfit = 
         brain.riskLearning.optimalTakeProfit * (1 - alpha) + lesson.profitPercent * alpha;
     }
     
-    // Increase position size slightly after wins
+    // Increase position size more after wins
     brain.riskLearning.optimalPositionSize = 
-      Math.min(10, brain.riskLearning.optimalPositionSize * 1.02);
+      Math.min(12, brain.riskLearning.optimalPositionSize * 1.03); // Increased cap and rate
     
     brain.riskLearning.riskRewardRatio = 
       brain.riskLearning.riskRewardRatio * (1 - alpha) + 
       (lesson.profitPercent / brain.adaptiveParameters.stopLossPercent) * alpha;
+      
+    // Learn from big wins
+    if (lesson.profitPercent > brain.riskLearning.optimalTakeProfit * 1.5) {
+      brain.adaptiveParameters.takeProfitPercent = 
+        Math.max(brain.adaptiveParameters.takeProfitPercent, lesson.profitPercent * 0.9);
+    }
   } else {
-    // Failed trade - tighten risk
+    // Failed trade - tighten risk MORE AGGRESSIVELY
     if (Math.abs(lesson.profitPercent) > brain.adaptiveParameters.stopLossPercent) {
       brain.riskLearning.optimalStopLoss = 
-        Math.max(0.5, brain.riskLearning.optimalStopLoss * 0.98);
+        Math.max(0.3, brain.riskLearning.optimalStopLoss * 0.96); // Faster tightening
     }
     
-    // Decrease position size after losses
+    // Decrease position size faster after losses
     brain.riskLearning.optimalPositionSize = 
-      Math.max(2, brain.riskLearning.optimalPositionSize * 0.98);
+      Math.max(1.5, brain.riskLearning.optimalPositionSize * 0.96); // More aggressive reduction
+      
+    // Extra penalty for large losses
+    if (Math.abs(lesson.profitPercent) > brain.riskLearning.optimalStopLoss * 1.5) {
+      brain.riskLearning.optimalPositionSize = 
+        Math.max(1.5, brain.riskLearning.optimalPositionSize * 0.9);
+    }
   }
   
   return {
@@ -523,8 +552,8 @@ function adjustRiskParameters(lesson: TradeLesson): LearningInsight | null {
     priority: !lesson.isWin && Math.abs(lesson.profitPercent) > 3 ? "high" : "low",
     message: `Risk parameters adjusted. Position size: ${brain.riskLearning.optimalPositionSize.toFixed(1)}%, Stop loss: ${brain.riskLearning.optimalStopLoss.toFixed(2)}%`,
     confidence: 80,
-    actionTaken: lesson.isWin ? "Slightly increased risk tolerance" : "Tightened risk controls",
-    improvement: lesson.isWin ? 0.1 : -0.05,
+    actionTaken: lesson.isWin ? "Increased risk tolerance" : "Tightened risk controls significantly",
+    improvement: lesson.isWin ? 0.15 : -0.08,
   };
 }
 
@@ -789,57 +818,115 @@ export function getEntryConfidence(
   indicators: IndicatorSnapshot
 ): { confidence: number; shouldEnter: boolean; reasons: string[] } {
   const reasons: string[] = [];
-  let confidence = 50;
+  let confidence = 55; // Start slightly higher
   
-  // Check strategy weight
+  // Check strategy weight - STRONGER INFLUENCE
   const strategyWeight = brain.strategyWeights.get(strategy) || 1.0;
-  confidence += (strategyWeight - 1) * 20;
-  if (strategyWeight > 1.2) reasons.push(`${strategy} is a top performer`);
+  confidence += (strategyWeight - 1) * 25; // Increased from 20
+  if (strategyWeight > 1.5) {
+    confidence += 5; // Extra boost for really strong strategies
+    reasons.push(`${strategy} is a TOP performer (weight: ${strategyWeight.toFixed(2)})`);
+  } else if (strategyWeight > 1.2) {
+    reasons.push(`${strategy} is a strong performer`);
+  }
   
-  // Check symbol performance
+  // Check symbol performance - ENHANCED
   const symbolData = brain.symbolPerformance.get(symbol);
-  if (symbolData) {
-    const symbolWinRate = symbolData.totalTrades > 0 ? (symbolData.wins / symbolData.totalTrades) * 100 : 50;
-    confidence += (symbolWinRate - 50) * 0.3;
-    if (symbolWinRate > 60) reasons.push(`${symbol} has ${symbolWinRate.toFixed(0)}% win rate`);
+  if (symbolData && symbolData.totalTrades > 5) {
+    const symbolWinRate = (symbolData.wins / symbolData.totalTrades) * 100;
+    const symbolBoost = (symbolWinRate - 50) * 0.4; // Increased from 0.3
+    confidence += symbolBoost;
+    if (symbolWinRate > 70) {
+      confidence += 8; // Extra boost for very high win rate
+      reasons.push(`${symbol} has EXCELLENT ${symbolWinRate.toFixed(0)}% win rate`);
+    } else if (symbolWinRate > 60) {
+      confidence += 3;
+      reasons.push(`${symbol} has good ${symbolWinRate.toFixed(0)}% win rate`);
+    } else if (symbolWinRate < 40) {
+      confidence -= 5; // Penalty for poor performers
+    }
     
     // Check if conditions match symbol preferences
     if (symbolData.volatilityPreference === "high" && marketState.volatility > 70) {
-      confidence += 5;
+      confidence += 8; // Increased from 5
       reasons.push("High volatility matches symbol preference");
+    } else if (symbolData.volatilityPreference === "low" && marketState.volatility < 30) {
+      confidence += 8;
+      reasons.push("Low volatility matches symbol preference");
+    }
+    
+    // Check momentum preference
+    if (symbolData.momentumPreference === "positive" && marketState.momentum > 20) {
+      confidence += 5;
+      reasons.push("Positive momentum matches preference");
     }
   }
   
-  // Check timing
+  // Check timing - STRONGER INFLUENCE
   const timingCheck = isGoodTradingTime();
   if (timingCheck.isGood) {
-    confidence += 10;
+    confidence += 15; // Increased from 10
     reasons.push(timingCheck.reason);
   } else {
-    confidence -= 10;
+    confidence -= 15; // Increased penalty
   }
   
-  // Check pattern matches
+  // Check pattern matches - MUCH STRONGER INFLUENCE
   const matchingPatterns = findMatchingPatterns(symbol, strategy, marketState, indicators);
   if (matchingPatterns.length > 0) {
     const bestPattern = matchingPatterns[0];
-    confidence += bestPattern.successRate * 0.2;
-    reasons.push(`Matches pattern with ${bestPattern.successRate.toFixed(0)}% success rate`);
+    const patternBoost = bestPattern.successRate * 0.3; // Increased from 0.2
+    confidence += patternBoost;
+    
+    // Extra boost if multiple strong patterns agree
+    if (matchingPatterns.length >= 3 && bestPattern.successRate > 70) {
+      confidence += 10;
+      reasons.push(`STRONG: ${matchingPatterns.length} patterns agree (${bestPattern.successRate.toFixed(0)}% success)`);
+    } else if (bestPattern.successRate > 80) {
+      confidence += 8;
+      reasons.push(`Exceptional pattern: ${bestPattern.successRate.toFixed(0)}% success rate`);
+    } else {
+      reasons.push(`Matches pattern with ${bestPattern.successRate.toFixed(0)}% success`);
+    }
   }
   
-  // Check RSI conditions
-  if (indicators.rsi < 30) {
-    confidence += 10;
+  // Enhanced technical indicator analysis
+  if (indicators.rsi < 25) {
+    confidence += 15; // Increased for strong oversold
+    reasons.push("RSI VERY oversold - excellent entry");
+  } else if (indicators.rsi < 35) {
+    confidence += 10; // Increased from undefined
     reasons.push("RSI oversold - good entry");
-  } else if (indicators.rsi > 70) {
-    confidence -= 10;
-    reasons.push("RSI overbought - risky entry");
+  } else if (indicators.rsi > 75) {
+    confidence -= 15; // Increased penalty
+    reasons.push("RSI VERY overbought - risky entry");
+  } else if (indicators.rsi > 65) {
+    confidence -= 8;
+    reasons.push("RSI overbought - caution");
   }
   
-  // Check MACD
+  // MACD with stronger signals
   if (indicators.macd > 0 && indicators.macdHistogram > 0) {
-    confidence += 5;
-    reasons.push("MACD bullish");
+    const macdStrength = Math.abs(indicators.macdHistogram);
+    if (macdStrength > 5) {
+      confidence += 10;
+      reasons.push("MACD strongly bullish");
+    } else {
+      confidence += 5;
+      reasons.push("MACD bullish");
+    }
+  } else if (indicators.macd < 0 && indicators.macdHistogram < 0) {
+    confidence -= 8;
+  }
+  
+  // Bollinger Bands positioning
+  const bbPosition = (indicators.bollingerMiddle - indicators.bollingerLower) / 
+                     (indicators.bollingerUpper - indicators.bollingerLower);
+  if (bbPosition < 0.2) {
+    confidence += 8;
+    reasons.push("Price near lower Bollinger Band");
+  } else if (bbPosition > 0.8) {
+    confidence -= 8;
   }
   
   // Cap confidence
@@ -851,7 +938,7 @@ export function getEntryConfidence(
 }
 
 /**
- * Find patterns that match current conditions
+ * Find patterns that match current conditions - ENHANCED MATCHING
  */
 function findMatchingPatterns(
   symbol: string,
@@ -861,6 +948,7 @@ function findMatchingPatterns(
 ): NeuralMemory[] {
   return brain.neuralMemories.filter(memory => {
     const pattern = memory.pattern;
+    let matchScore = 0;
     
     // Must match symbol or be a general pattern
     if (pattern.symbol !== symbol && pattern.symbol !== "*") return false;
@@ -868,19 +956,45 @@ function findMatchingPatterns(
     // Strategy should match
     if (pattern.strategy !== strategy) return false;
     
-    // Market condition should be similar
-    if (pattern.marketCondition.trend !== marketState.trend) return false;
+    // Market condition similarity (weighted scoring)
+    if (pattern.marketCondition.trend === marketState.trend) matchScore += 30;
     
-    // Volatility should be in same range
+    // Volatility similarity - more lenient
     const volDiff = Math.abs(pattern.marketCondition.volatility - marketState.volatility);
-    if (volDiff > 30) return false;
+    if (volDiff < 15) matchScore += 20;
+    else if (volDiff < 35) matchScore += 10;
+    else return false; // Too different
     
-    // RSI should be in same zone
-    const rsiZone = (rsi: number) => rsi < 30 ? "oversold" : rsi > 70 ? "overbought" : "neutral";
-    if (rsiZone(pattern.indicators.rsi) !== rsiZone(indicators.rsi)) return false;
+    // RSI zone matching - refined zones
+    const rsiZone = (rsi: number) => {
+      if (rsi < 25) return "very_oversold";
+      if (rsi < 40) return "oversold";
+      if (rsi < 60) return "neutral";
+      if (rsi < 75) return "overbought";
+      return "very_overbought";
+    };
+    if (rsiZone(pattern.indicators.rsi) === rsiZone(indicators.rsi)) matchScore += 25;
     
-    return true;
-  }).sort((a, b) => (b.successRate * b.weight) - (a.successRate * a.weight));
+    // Momentum similarity
+    const momentumDiff = Math.abs(pattern.marketCondition.momentum - marketState.momentum);
+    if (momentumDiff < 20) matchScore += 15;
+    else if (momentumDiff < 40) matchScore += 5;
+    
+    // MACD trend similarity
+    const macdTrend = (macd: number, signal: number) => macd > signal ? "bullish" : "bearish";
+    if (macdTrend(pattern.indicators.macd, pattern.indicators.macdSignal) === 
+        macdTrend(indicators.macd, indicators.macdSignal)) {
+      matchScore += 10;
+    }
+    
+    // Only accept patterns with good match score
+    return matchScore >= 60; // Require at least 60% similarity
+  }).sort((a, b) => {
+    // Sort by weighted score: success rate * weight * confidence
+    const scoreA = (a.successRate / 100) * a.weight * (a.confidence / 100);
+    const scoreB = (b.successRate / 100) * b.weight * (b.confidence / 100);
+    return scoreB - scoreA;
+  });
 }
 
 /**

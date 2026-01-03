@@ -919,14 +919,16 @@ export function getEntryConfidence(
     confidence -= 8;
   }
   
-  // Bollinger Bands positioning
-  const bbPosition = (indicators.bollingerMiddle - indicators.bollingerLower) / 
-                     (indicators.bollingerUpper - indicators.bollingerLower);
-  if (bbPosition < 0.2) {
-    confidence += 8;
-    reasons.push("Price near lower Bollinger Band");
-  } else if (bbPosition > 0.8) {
-    confidence -= 8;
+  // Bollinger Bands positioning (guard against division by zero)
+  const bbRange = indicators.bollingerUpper - indicators.bollingerLower;
+  if (bbRange > 0) {
+    const bbPosition = (indicators.bollingerMiddle - indicators.bollingerLower) / bbRange;
+    if (bbPosition < 0.2) {
+      confidence += 8;
+      reasons.push("Price near lower Bollinger Band");
+    } else if (bbPosition > 0.8) {
+      confidence -= 8;
+    }
   }
   
   // Cap confidence

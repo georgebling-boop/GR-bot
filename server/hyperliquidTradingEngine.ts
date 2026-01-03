@@ -53,6 +53,7 @@ const DEFAULT_CONFIG: TradingConfig = {
 let config = { ...DEFAULT_CONFIG };
 let isRunning = false;
 let tradingInterval: NodeJS.Timeout | null = null;
+let lastCycleLogTime = 0; // Track last time we logged cycle status
 
 // Trade tracking
 interface LiveTrade {
@@ -170,6 +171,13 @@ async function executeTradingCycle(): Promise<void> {
       return;
     }
 
+    // Log cycle execution (every 60 seconds)
+    const now = Date.now();
+    if (now - lastCycleLogTime > 60000) {
+      console.log(`[HyperliquidEngine] Trading cycle running - Active trades: ${activeTrades.size}, Account value: $${accountState.marginSummary.accountValue.toFixed(2)}`);
+      lastCycleLogTime = now;
+    }
+
     // Update active trades from positions
     await syncPositions(accountState.assetPositions);
 
@@ -283,22 +291,31 @@ async function checkExitSignals(prices: Record<string, number>): Promise<void> {
     let shouldExit = false;
     let exitReason = "";
 
+    // Calculate profit/loss for logging
+    const pnl = trade.side === "long"
+      ? ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100
+      : ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100;
+
     // Check stop loss
     if (trade.side === "long" && currentPrice <= trade.stopLoss) {
       shouldExit = true;
       exitReason = "stop_loss";
+      console.log(`[HyperliquidEngine] ${coin} hit stop loss: ${currentPrice.toFixed(2)} <= ${trade.stopLoss.toFixed(2)} (${pnl.toFixed(2)}% loss)`);
     } else if (trade.side === "short" && currentPrice >= trade.stopLoss) {
       shouldExit = true;
       exitReason = "stop_loss";
+      console.log(`[HyperliquidEngine] ${coin} hit stop loss: ${currentPrice.toFixed(2)} >= ${trade.stopLoss.toFixed(2)} (${pnl.toFixed(2)}% loss)`);
     }
 
     // Check take profit
     if (trade.side === "long" && currentPrice >= trade.takeProfit) {
       shouldExit = true;
       exitReason = "take_profit";
+      console.log(`[HyperliquidEngine] ${coin} hit take profit: ${currentPrice.toFixed(2)} >= ${trade.takeProfit.toFixed(2)} (${pnl.toFixed(2)}% profit)`);
     } else if (trade.side === "short" && currentPrice <= trade.takeProfit) {
       shouldExit = true;
       exitReason = "take_profit";
+      console.log(`[HyperliquidEngine] ${coin} hit take profit: ${currentPrice.toFixed(2)} <= ${trade.takeProfit.toFixed(2)} (${pnl.toFixed(2)}% profit)`);
     }
 
     // Get AI exit signal - if confidence is low, consider exiting
@@ -308,13 +325,34 @@ async function checkExitSignals(prices: Record<string, number>): Promise<void> {
     if (!aiSignal.shouldEnter && aiSignal.confidence < 30) {
       shouldExit = true;
       exitReason = "ai_low_confidence";
+      console.log(`[HyperliquidEngine] ${coin} AI low confidence exit: ${aiSignal.confidence.toFixed(1)}% (${pnl.toFixed(2)}% PnL)`);
     }
 
     if (shouldExit) {
-      console.log(`[HyperliquidEngine] Closing ${coin} position: ${exitReason}`);
-      const result = await closePosition(coin);
-      if (result.success) {
-        console.log(`[HyperliquidEngine] Closed ${coin} at ${currentPrice}`);
+      console.log(`[HyperliquidEngine] Closing ${coin} position: ${exitReason} at ${currentPrice.toFixed(2)}`);
+      try {
+        const result = await closePosition(coin);
+        if (result.success) {
+          console.log(`[HyperliquidEngine] ✓ Successfully closed ${coin} at ${currentPrice.toFixed(2)} (${exitReason})`);
+        } else {
+          console.error(`[HyperliquidEngine] ✗ Failed to close ${coin}: ${result.error || 'Unknown error'}`);
+          // Retry once after a short delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retryResult = await closePosition(coin);
+          if (retryResult.success) {
+            console.log(`[HyperliquidEngine] ✓ Retry successful: Closed ${coin}`);
+          } else {
+            console.error(`[HyperliquidEngine] ✗ Retry failed for ${coin}: ${retryResult.error || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error(`[HyperliquidEngine] ✗ Error closing ${coin}:`, error);
+      }
+    } else {
+      // Log current position status every 30 seconds (approx every 6 cycles at 5s interval)
+      const tradeAge = Date.now() - trade.entryTime.getTime();
+      if (tradeAge % 30000 < 5000) { // Within 5 seconds of 30s intervals
+        console.log(`[HyperliquidEngine] ${coin} ${trade.side} @ ${trade.entryPrice.toFixed(2)} -> ${currentPrice.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%) | TP: ${trade.takeProfit.toFixed(2)} | SL: ${trade.stopLoss.toFixed(2)}`);
       }
     }
   }

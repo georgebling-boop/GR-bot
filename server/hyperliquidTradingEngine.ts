@@ -25,6 +25,11 @@ import {
 } from "./continuousLearningAI";
 
 // Trading configuration
+// Note: Optimized for faster profit-taking as requested
+// - 2% take profit (reduced from 4%) for quicker exits on winning trades
+// - 2% stop loss maintained for 1:1 risk-reward ratio
+// - 5-second cycle (reduced from 10s) for more responsive trading
+// Trade-off: More frequent trades and API calls, but faster profit realization
 interface TradingConfig {
   maxPositions: number;
   positionSizePercent: number;

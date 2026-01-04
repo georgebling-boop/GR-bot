@@ -29,7 +29,7 @@ export function BuildInfo() {
     return null;
   }
 
-  const shortSha = buildInfo.gitSha.substring(0, 7);
+  const shortSha = buildInfo.gitSha.length >= 7 ? buildInfo.gitSha.substring(0, 7) : buildInfo.gitSha;
   const buildDate = new Date(buildInfo.buildTime).toLocaleString();
 
   return (

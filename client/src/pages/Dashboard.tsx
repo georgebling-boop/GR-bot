@@ -30,6 +30,7 @@ import { ContinuousLearningPanel } from "@/components/ContinuousLearningPanel";
 import { TradeAlertsPanel } from "@/components/TradeAlertsPanel";
 import { BrainPersistencePanel } from "@/components/BrainPersistencePanel";
 import { HyperliquidPanel } from "@/components/HyperliquidPanel";
+import { BuildInfo } from "@/components/BuildInfo";
 
 /**
  * George's Trade Bot Dashboard
@@ -561,8 +562,9 @@ export default function Dashboard() {
         )}
 
         {/* Footer */}
-        <footer className="text-center py-4 text-xs text-muted-foreground">
+        <footer className="flex flex-col items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
           <p>⚠️ Live Trading Active • High Risk • Not Financial Advice • Trade at Your Own Risk</p>
+          <BuildInfo />
         </footer>
       </main>
     </div>

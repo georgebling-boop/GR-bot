@@ -21,6 +21,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
+import { BuildInfo } from "@/components/BuildInfo";
 
 /**
  * View-Only Dashboard - No interactive controls
@@ -456,9 +457,10 @@ export default function ViewOnly() {
         )}
 
         {/* Footer */}
-        <footer className="text-center py-4 text-xs text-muted-foreground space-y-2">
+        <footer className="flex flex-col items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
           <p>Paper Trading Only • Not Financial Advice • Past Performance Does Not Guarantee Future Results</p>
           <p className="text-blue-400">This is a view-only page • No trading controls available</p>
+          <BuildInfo />
         </footer>
       </main>
     </div>

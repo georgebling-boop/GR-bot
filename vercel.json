@@ -4,6 +4,8 @@
   "framework": null,
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
-    "VITE_PREVIEW_MODE": "mock"
+    "VITE_PREVIEW_MODE": "mock",
+    "VITE_ANALYTICS_ENDPOINT": "",
+    "VITE_ANALYTICS_WEBSITE_ID": ""
   }
 }

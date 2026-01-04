@@ -7,7 +7,6 @@ import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
-import { createMockClient } from "./lib/trpcMock";
 
 const queryClient = new QueryClient();
 
@@ -38,24 +37,20 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
-const useMock = import.meta.env.VITE_PREVIEW_MODE === "mock";
-
-const trpcClient = useMock
-  ? createMockClient()
-  : trpc.createClient({
-      links: [
-        httpBatchLink({
-          url: "/api/trpc",
-          transformer: superjson,
-          fetch(input, init) {
-            return globalThis.fetch(input, {
-              ...(init ?? {}),
-              credentials: "include",
-            });
-          },
-        }),
-      ],
-    });
+const trpcClient = trpc.createClient({
+  links: [
+    httpBatchLink({
+      url: "/api/trpc",
+      transformer: superjson,
+      fetch(input, init) {
+        return globalThis.fetch(input, {
+          ...(init ?? {}),
+          credentials: "include",
+        });
+      },
+    }),
+  ],
+});
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

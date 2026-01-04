@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execSync } from 'child_process';
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -33,7 +33,23 @@ function generateBuildInfo() {
   };
 
   const outputPath = resolve(__dirname, '..', 'client', 'public', 'build-info.json');
-  writeFileSync(outputPath, JSON.stringify(buildInfo, null, 2));
+  const outputDir = dirname(outputPath);
+  
+  // Ensure the output directory exists
+  try {
+    mkdirSync(outputDir, { recursive: true });
+  } catch (error) {
+    console.error('Error: Failed to create directory', outputDir + ':', error.message);
+    process.exit(1);
+  }
+  
+  // Write the build info file
+  try {
+    writeFileSync(outputPath, JSON.stringify(buildInfo, null, 2));
+  } catch (error) {
+    console.error('Error: Failed to write build info to', outputPath + ':', error.message);
+    process.exit(1);
+  }
   
   console.log('✓ Build info generated:', buildInfo);
   return buildInfo;

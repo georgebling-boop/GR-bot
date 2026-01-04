@@ -9,9 +9,9 @@ import { ethers } from "ethers";
 const MAINNET_API = "https://api.hyperliquid.xyz";
 const TESTNET_API = "https://api.hyperliquid-testnet.xyz";
 
-// Use testnet by default for safety
-let API_BASE = TESTNET_API;
-let IS_MAINNET = false;
+// LIVE TRADING MODE: Using mainnet for real trades
+let API_BASE = MAINNET_API;
+let IS_MAINNET = true;
 
 // Wallet configuration
 let wallet: ethers.Wallet | null = null;
@@ -670,21 +670,35 @@ export async function cancelAllOrders(coin?: string): Promise<boolean> {
  * Close a position
  */
 export async function closePosition(coin: string): Promise<TradeResult> {
+  console.log(`[Hyperliquid] 🔄 Attempting to close ${coin} position...`);
+  
   const accountState = await getAccountState();
   if (!accountState) {
+    console.error(`[Hyperliquid] ✗ Cannot close ${coin}: Failed to get account state`);
     return { success: false, error: "Failed to get account state" };
   }
 
   const position = accountState.assetPositions.find(p => p.coin === coin);
   if (!position || position.size === 0) {
+    console.log(`[Hyperliquid] ℹ️  No position found for ${coin} to close (may already be closed)`);
     return { success: false, error: "No position to close" };
   }
 
   // Close by placing opposite order
   const side = position.size > 0 ? "sell" : "buy";
   const size = Math.abs(position.size);
+  
+  console.log(`[Hyperliquid] 📤 Closing ${coin}: ${side.toUpperCase()} ${size} (current size: ${position.size})`);
 
-  return placeMarketOrder(coin, side, size, true);
+  const result = await placeMarketOrder(coin, side, size, true);
+  
+  if (result.success) {
+    console.log(`[Hyperliquid] ✓ Successfully submitted close order for ${coin}`);
+  } else {
+    console.error(`[Hyperliquid] ✗ Failed to close ${coin}: ${result.error || 'Unknown error'}`);
+  }
+  
+  return result;
 }
 
 /**

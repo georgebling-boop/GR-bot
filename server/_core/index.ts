@@ -12,6 +12,20 @@ import { loadBrainFromDatabase, saveBrainToDatabase } from "../brainPersistence"
 import { getActiveHyperliquidConnection } from "../db";
 import { initializeHyperliquid, getConnectionStatus } from "../hyperliquid";
 
+// NEW: lightweight env presence check (non-fatal)
+function getEnvStatus() {
+  return {
+    VITE_APP_ID: !!process.env.VITE_APP_ID,
+    JWT_SECRET: !!process.env.JWT_SECRET,
+    DATABASE_URL: !!process.env.DATABASE_URL,
+    OAUTH_SERVER_URL: !!process.env.OAUTH_SERVER_URL,
+    OWNER_OPEN_ID: !!process.env.OWNER_OPEN_ID,
+    BUILT_IN_FORGE_API_URL: !!process.env.BUILT_IN_FORGE_API_URL,
+    BUILT_IN_FORGE_API_KEY: !!process.env.BUILT_IN_FORGE_API_KEY,
+    NODE_ENV: process.env.NODE_ENV ?? "",
+  };
+}
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
@@ -39,6 +53,36 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+
+  // NEW: Basic health endpoint for ops checks
+  app.get("/health", (_req, res) => {
+    try {
+      const connection = getConnectionStatus();
+      const session = getSession();
+      const envStatus = getEnvStatus();
+      const payload = {
+        ok: true,
+        time: new Date().toISOString(),
+        env: envStatus,
+        trading: {
+          running: !!session?.isRunning,
+        },
+        hyperliquid: {
+          connected: !!connection?.wallet,
+          network: connection?.network ?? "unknown",
+          wallet: connection?.wallet ?? "",
+        },
+      };
+      res.status(200).json(payload);
+    } catch (err) {
+      res.status(503).json({
+        ok: false,
+        time: new Date().toISOString(),
+        error: (err as Error)?.message ?? "unknown",
+      });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",
@@ -127,10 +171,10 @@ async function autoStartTradingBot() {
 }
 
 /**
- * Continuous trading loop - runs every 10 seconds
+ * Continuous trading loop - runs every 5 seconds for faster trading
  */
 function startContinuousTradingLoop() {
-  const TRADING_INTERVAL = 10000; // 10 seconds
+  const TRADING_INTERVAL = 5000; // 5 seconds (faster cycle for quicker trades)
   
   setInterval(async () => {
     try {

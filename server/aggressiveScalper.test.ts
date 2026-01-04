@@ -54,10 +54,10 @@ describe("Aggressive Scalper Trading System", () => {
       expect(session?.isRunning).toBe(false);
     });
 
-    it("should reset session to $800", () => {
+    it("should reset session to $800", async () => {
       initializeSession(800);
       startTrading();
-      executeTradingCycle(); // Make some trades
+      await executeTradingCycle(); // Make some trades
       
       const session = resetSession();
       
@@ -97,11 +97,11 @@ describe("Aggressive Scalper Trading System", () => {
   });
 
   describe("Trading Execution", () => {
-    it("should execute trading cycle", () => {
+    it("should execute trading cycle", async () => {
       initializeSession(800);
       startTrading();
       
-      const result = executeTradingCycle();
+      const result = await executeTradingCycle();
       
       expect(result).toBeDefined();
       expect(result.session).toBeDefined();
@@ -110,13 +110,13 @@ describe("Aggressive Scalper Trading System", () => {
       expect(Array.isArray(result.closedTrades)).toBe(true);
     });
 
-    it("should open trades when conditions are met", () => {
+    it("should open trades when conditions are met", async () => {
       initializeSession(800);
       startTrading();
       
       // Execute multiple cycles to trigger trades
       for (let i = 0; i < 10; i++) {
-        executeTradingCycle();
+        await executeTradingCycle();
       }
       
       const session = getSession();
@@ -125,13 +125,13 @@ describe("Aggressive Scalper Trading System", () => {
       expect(session?.totalTrades).toBeGreaterThanOrEqual(0);
     });
 
-    it("should not exceed max concurrent trades", () => {
+    it("should not exceed max concurrent trades", async () => {
       initializeSession(800);
       startTrading();
       
       // Execute many cycles
       for (let i = 0; i < 50; i++) {
-        executeTradingCycle();
+        await executeTradingCycle();
       }
       
       const session = getSession();
@@ -140,13 +140,13 @@ describe("Aggressive Scalper Trading System", () => {
       expect(session?.openTrades.length).toBeLessThanOrEqual(5);
     });
 
-    it("should track winning and losing trades", () => {
+    it("should track winning and losing trades", async () => {
       initializeSession(800);
       startTrading();
       
       // Execute many cycles to generate closed trades
       for (let i = 0; i < 100; i++) {
-        executeTradingCycle();
+        await executeTradingCycle();
       }
       
       const session = getSession();
@@ -158,8 +158,8 @@ describe("Aggressive Scalper Trading System", () => {
   });
 
   describe("Backtesting", () => {
-    it("should run 7-day backtest", () => {
-      const result = runBacktest(7);
+    it("should run 7-day backtest", async () => {
+      const result = await runBacktest(7);
       
       expect(result).toBeDefined();
       expect(result.finalBalance).toBeGreaterThan(0);
@@ -171,8 +171,8 @@ describe("Aggressive Scalper Trading System", () => {
       expect(result.maxDrawdown).toBeGreaterThanOrEqual(0);
     });
 
-    it("should run 30-day backtest", () => {
-      const result = runBacktest(30);
+    it("should run 30-day backtest", async () => {
+      const result = await runBacktest(30);
       
       expect(result).toBeDefined();
       expect(result.finalBalance).toBeGreaterThan(0);
@@ -180,8 +180,8 @@ describe("Aggressive Scalper Trading System", () => {
       expect(Array.isArray(result.trades)).toBe(true);
     });
 
-    it("should track best strategy in backtest", () => {
-      const result = runBacktest(14);
+    it("should track best strategy in backtest", async () => {
+      const result = await runBacktest(14);
       
       expect(result.bestStrategy).toBeDefined();
       expect(typeof result.bestStrategy).toBe("string");
@@ -189,13 +189,13 @@ describe("Aggressive Scalper Trading System", () => {
   });
 
   describe("Strategy Stats", () => {
-    it("should track strategy performance", () => {
+    it("should track strategy performance", async () => {
       initializeSession(800);
       startTrading();
       
       // Execute many cycles to generate strategy stats
       for (let i = 0; i < 100; i++) {
-        executeTradingCycle();
+        await executeTradingCycle();
       }
       
       const session = getSession();

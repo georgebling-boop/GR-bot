@@ -26,15 +26,9 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { SelfLearningPanel } from "@/components/SelfLearningPanel";
-import { AdvancedTradingPanel } from "@/components/AdvancedTradingPanel";
 import { ContinuousLearningPanel } from "@/components/ContinuousLearningPanel";
 import { TradeAlertsPanel } from "@/components/TradeAlertsPanel";
-import { BacktestingPanel } from "@/components/BacktestingPanel";
 import { BrainPersistencePanel } from "@/components/BrainPersistencePanel";
-import { NotificationsDisplay } from "@/components/NotificationsDisplay";
-import { PortfolioDisplay } from "@/components/PortfolioDisplay";
-import { CompetitionsDisplay } from "@/components/CompetitionsDisplay";
 import { HyperliquidPanel } from "@/components/HyperliquidPanel";
 
 /**
@@ -469,6 +463,9 @@ export default function Dashboard() {
               </Card>
             )}
 
+            {/* Hyperliquid Exchange Integration - Live Trading */}
+            <HyperliquidPanel />
+
             {/* Continuous Learning AI - Learns from every trade */}
             <ContinuousLearningPanel />
 
@@ -477,24 +474,6 @@ export default function Dashboard() {
               <TradeAlertsPanel />
               <BrainPersistencePanel />
             </div>
-
-            {/* Strategy Backtesting */}
-            <BacktestingPanel />
-
-            {/* Portfolio, Notifications & Competitions */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <PortfolioDisplay />
-              <NotificationsDisplay />
-              <CompetitionsDisplay />
-            </div>
-
-            {/* Hyperliquid Exchange Integration */}
-            <div className="col-span-1 md:col-span-2">
-              <HyperliquidPanel />
-            </div>
-
-            {/* Advanced Trading with Bot Health */}
-            <AdvancedTradingPanel />
 
             {/* Recent Trades */}
             {session.closedTrades.length > 0 && (
@@ -583,7 +562,7 @@ export default function Dashboard() {
 
         {/* Footer */}
         <footer className="text-center py-4 text-xs text-muted-foreground">
-          <p>Paper Trading Only • Not Financial Advice • Past Performance Does Not Guarantee Future Results</p>
+          <p>⚠️ Live Trading Active • High Risk • Not Financial Advice • Trade at Your Own Risk</p>
         </footer>
       </main>
     </div>

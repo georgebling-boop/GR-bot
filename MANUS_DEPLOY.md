@@ -31,10 +31,14 @@ dist/public
 ```
 
 **Environment Variables:**
-Set the following environment variable to enable mock/preview mode:
+Set the following environment variables:
 ```
 VITE_PREVIEW_MODE=mock
+VITE_ANALYTICS_ENDPOINT=
+VITE_ANALYTICS_WEBSITE_ID=
 ```
+
+Note: The analytics variables can be left empty for static deployments. Set `VITE_PREVIEW_MODE=mock` to enable mock data mode.
 
 ### 2. SPA Routing Configuration
 

@@ -36,6 +36,20 @@ function isPortAvailable(port: number): Promise<boolean> {
   });
 }
 
+function parseBoolEnv(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function getHyperliquidEnvConfig(): { privateKey: string; useMainnet: boolean } | null {
+  const privateKey = process.env.HYPERLIQUID_PRIVATE_KEY?.trim();
+  if (!privateKey) return null;
+
+  const useMainnet = parseBoolEnv(process.env.HYPERLIQUID_USE_MAINNET);
+  return { privateKey, useMainnet };
+}
+
 async function findAvailablePort(startPort: number = 3000): Promise<number> {
   for (let port = startPort; port < startPort + 20; port++) {
     if (await isPortAvailable(port)) {
@@ -121,28 +135,42 @@ async function autoStartTradingBot() {
   console.log('[AutoStart] Initializing trading bot...');
   
   try {
-    // Auto-reconnect Hyperliquid if there's a saved connection
-    console.log('[AutoStart] Checking for saved Hyperliquid connection...');
-    try {
-      const savedConnection = await getActiveHyperliquidConnection();
-      if (savedConnection) {
-        console.log('[AutoStart] Found saved Hyperliquid connection, reconnecting...');
-        const success = initializeHyperliquid({
-          privateKey: savedConnection.privateKey,
-          useMainnet: savedConnection.useMainnet,
-        });
-        if (success) {
-          const status = getConnectionStatus();
-          console.log(`[AutoStart] Hyperliquid reconnected successfully to ${status.network}`);
-          console.log(`[AutoStart] Wallet: ${status.wallet}`);
-        } else {
-          console.error('[AutoStart] Failed to reconnect to Hyperliquid');
-        }
+    // Auto-connect Hyperliquid (prefer env vars for always-on deployments)
+    console.log('[AutoStart] Checking Hyperliquid configuration...');
+    const envHl = getHyperliquidEnvConfig();
+    if (envHl) {
+      console.log('[AutoStart] Using Hyperliquid credentials from environment variables');
+      const success = initializeHyperliquid(envHl);
+      if (success) {
+        const status = getConnectionStatus();
+        console.log(`[AutoStart] Hyperliquid connected successfully to ${status.network}`);
+        console.log(`[AutoStart] Wallet: ${status.wallet}`);
       } else {
-        console.log('[AutoStart] No saved Hyperliquid connection found');
+        console.error('[AutoStart] Failed to connect to Hyperliquid from env vars');
       }
-    } catch (hlError) {
-      console.error('[AutoStart] Error reconnecting Hyperliquid:', hlError);
+    } else {
+      console.log('[AutoStart] No Hyperliquid env vars found, checking for saved connection...');
+      try {
+        const savedConnection = await getActiveHyperliquidConnection();
+        if (savedConnection) {
+          console.log('[AutoStart] Found saved Hyperliquid connection, reconnecting...');
+          const success = initializeHyperliquid({
+            privateKey: savedConnection.privateKey,
+            useMainnet: savedConnection.useMainnet,
+          });
+          if (success) {
+            const status = getConnectionStatus();
+            console.log(`[AutoStart] Hyperliquid reconnected successfully to ${status.network}`);
+            console.log(`[AutoStart] Wallet: ${status.wallet}`);
+          } else {
+            console.error('[AutoStart] Failed to reconnect to Hyperliquid');
+          }
+        } else {
+          console.log('[AutoStart] No saved Hyperliquid connection found');
+        }
+      } catch (hlError) {
+        console.error('[AutoStart] Error reconnecting Hyperliquid:', hlError);
+      }
     }
     
     // Load AI brain state from database

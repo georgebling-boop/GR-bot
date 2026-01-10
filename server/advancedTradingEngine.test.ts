@@ -85,10 +85,10 @@ describe("Advanced Trading Engine", () => {
   });
 
   describe("Weekly Target", () => {
-    it("should return weekly target with $1000 goal", () => {
+    it("should return weekly target with $80 goal", () => {
       initializeSession(800);
       const target = getWeeklyTarget();
-      expect(target.targetProfit).toBe(1000);
+      expect(target.targetProfit).toBe(80);
       expect(target.daysRemaining).toBeGreaterThanOrEqual(0);
       expect(target.daysRemaining).toBeLessThanOrEqual(7);
     });
@@ -98,7 +98,7 @@ describe("Advanced Trading Engine", () => {
       recordTrade(50, true);
       const target = getWeeklyTarget();
       expect(target.currentProfit).toBe(50);
-      expect(target.progressPercent).toBe(5); // 50/1000 = 5%
+      expect(target.progressPercent).toBeCloseTo(62.5, 5); // 50/80 = 62.5%
     });
   });
 

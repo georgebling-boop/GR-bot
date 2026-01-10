@@ -115,78 +115,6 @@ const FALLBACK_PRICES: CryptoPrice[] = [
     atl: 0.43,
     last_updated: new Date().toISOString(),
   },
-  {
-    id: "cardano",
-    symbol: "ADA",
-    name: "Cardano",
-    current_price: 0.62,
-    market_cap: 22000000000,
-    market_cap_rank: 8,
-    total_volume: 450000000,
-    high_24h: 0.64,
-    low_24h: 0.60,
-    price_change_24h: 0.01,
-    price_change_percentage_24h: 1.64,
-    circulating_supply: 35000000000,
-    total_supply: 45000000000,
-    ath: 3.10,
-    atl: 0.02,
-    last_updated: new Date().toISOString(),
-  },
-  {
-    id: "solana",
-    symbol: "SOL",
-    name: "Solana",
-    current_price: 98.50,
-    market_cap: 43000000000,
-    market_cap_rank: 5,
-    total_volume: 2100000000,
-    high_24h: 101.00,
-    low_24h: 96.00,
-    price_change_24h: 1.50,
-    price_change_percentage_24h: 1.55,
-    circulating_supply: 430000000,
-    total_supply: 570000000,
-    ath: 260.00,
-    atl: 0.50,
-    last_updated: new Date().toISOString(),
-  },
-  {
-    id: "ripple",
-    symbol: "XRP",
-    name: "XRP",
-    current_price: 0.62,
-    market_cap: 34000000000,
-    market_cap_rank: 6,
-    total_volume: 1200000000,
-    high_24h: 0.64,
-    low_24h: 0.60,
-    price_change_24h: 0.01,
-    price_change_percentage_24h: 1.64,
-    circulating_supply: 54000000000,
-    total_supply: 100000000000,
-    ath: 3.84,
-    atl: 0.003,
-    last_updated: new Date().toISOString(),
-  },
-  {
-    id: "dogecoin",
-    symbol: "DOGE",
-    name: "Dogecoin",
-    current_price: 0.082,
-    market_cap: 11700000000,
-    market_cap_rank: 10,
-    total_volume: 450000000,
-    high_24h: 0.085,
-    low_24h: 0.079,
-    price_change_24h: 0.002,
-    price_change_percentage_24h: 2.50,
-    circulating_supply: 142000000000,
-    total_supply: 142000000000,
-    ath: 0.74,
-    atl: 0.00009,
-    last_updated: new Date().toISOString(),
-  },
 ];
 
 /**
@@ -194,7 +122,7 @@ const FALLBACK_PRICES: CryptoPrice[] = [
  * With caching and rate limiting
  */
 export async function fetchCryptoPrices(
-  ids: string[] = ["bitcoin", "ethereum", "cardano", "solana", "ripple", "dogecoin"]
+  ids: string[] = ["bitcoin", "ethereum"]
 ): Promise<CryptoPrice[]> {
   const cacheKey = `prices_${ids.sort().join(",")}`;
   

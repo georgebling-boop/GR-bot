@@ -88,14 +88,6 @@ export const marketDataRouter = router({
       const symbolMap: { [key: string]: string } = {
         BTC: "bitcoin",
         ETH: "ethereum",
-        ADA: "cardano",
-        SOL: "solana",
-        XRP: "ripple",
-        DOGE: "dogecoin",
-        MATIC: "matic-network",
-        LINK: "chainlink",
-        DOT: "polkadot",
-        UNI: "uniswap",
       };
 
       const cryptoId = symbolMap[input.symbol.toUpperCase()] || input.symbol.toLowerCase();

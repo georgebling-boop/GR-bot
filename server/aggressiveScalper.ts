@@ -84,26 +84,19 @@ export interface PriceData {
 const CRYPTO_BASE_PRICES: Record<string, number> = {
   BTC: 43250,
   ETH: 2280,
-  ADA: 0.62,
-  SOL: 98.5,
-  XRP: 0.62,
-  DOGE: 0.082,
 };
 
 // Symbol mapping from our symbols to Hyperliquid symbols
 const HYPERLIQUID_SYMBOL_MAP: Record<string, string> = {
   BTC: "BTC",
   ETH: "ETH",
-  SOL: "SOL",
-  DOGE: "DOGE",
-  XRP: "XRP",
-  ADA: "ADA",
 };
 
 // Cache for Hyperliquid prices
 let hyperliquidPriceCache: Record<string, number> = {};
 let lastHyperliquidFetch = 0;
 const PRICE_CACHE_TTL = 2000; // 2 seconds
+let lastHyperliquidPriceLog = 0;
 
 /**
  * Fetch prices from Hyperliquid and update cache
@@ -124,7 +117,10 @@ async function updateHyperliquidPrices(): Promise<void> {
     if (Object.keys(prices).length > 0) {
       hyperliquidPriceCache = prices;
       lastHyperliquidFetch = now;
-      console.log("[Scalper] Updated prices from Hyperliquid");
+      if (now - lastHyperliquidPriceLog > 60000) {
+        console.log("[Scalper] Updated prices from Hyperliquid");
+        lastHyperliquidPriceLog = now;
+      }
     }
   } catch (error) {
     console.error("[Scalper] Failed to fetch Hyperliquid prices:", error);

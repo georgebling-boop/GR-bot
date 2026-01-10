@@ -136,8 +136,8 @@ describe("Aggressive Scalper Trading System", () => {
       
       const session = getSession();
       
-      // Max 5 concurrent trades
-      expect(session?.openTrades.length).toBeLessThanOrEqual(5);
+      // Max 3 concurrent trades
+      expect(session?.openTrades.length).toBeLessThanOrEqual(3);
     });
 
     it("should track winning and losing trades", async () => {

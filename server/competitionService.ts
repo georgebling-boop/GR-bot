@@ -205,14 +205,10 @@ export async function startCompetition(): Promise<{ success: boolean; message: s
 async function simulateTrades(): Promise<void> {
   if (!activeCompetition) return;
   
-  const symbols = ["BTC", "ETH", "SOL", "ADA", "XRP", "DOGE"];
+  const symbols = ["BTC", "ETH"];
   const basePrices: Record<string, number> = {
     BTC: 43000,
     ETH: 2300,
-    SOL: 98,
-    ADA: 0.58,
-    XRP: 0.62,
-    DOGE: 0.09,
   };
   
   for (const participant of activeCompetition.participants) {

@@ -24,16 +24,15 @@ import {
   type IndicatorSnapshot,
 } from "./continuousLearningAI";
 
-// Trading configuration - UPDATED FOR SAFETY & PROFITABILITY
-// - Reduced leverage from 7x to 3x to prevent liquidations
-// - Increased take profit from 2% to 5% for better risk-reward
-// - Position sizing uses Kelly Criterion (2% per trade)
-// - Extended trading cycle to 15s to reduce over-trading & API rate issues
+// Trading configuration
+// Defaults tuned for BTC/ETH-only trading and continuous operation.
+// Key goals:
+// - Only trade BTC and ETH by default
+// - Keep the engine running 24/7 (auto-reconnect + health checks)
+// - Avoid overlapping trading cycles (prevents duplicate orders)
 
 const CLOSE_RETRY_DELAY_MS = 1000; // Delay before retrying failed close operations
 const POSITION_LOG_INTERVAL_MS = 30000; // Log position status every 30 seconds
-const MAX_CONSECUTIVE_LOSSES = 3; // Stop trading after 3 consecutive losses
-const MAX_DAILY_LOSS_PERCENT = 5; // Stop if daily loss exceeds 5% of account
 
 interface TradingConfig {
   maxPositions: number;
@@ -46,20 +45,29 @@ interface TradingConfig {
 }
 
 const DEFAULT_CONFIG: TradingConfig = {
-  maxPositions: 3,
-  positionSizePercent: 2, // 2% of account per position (using Kelly Criterion for safety)
-  defaultLeverage: 3, // REDUCED: 3x leverage for safety (was 7x - prevents liquidation)
-  stopLossPercent: 2.5, // 2.5% stop loss
-  takeProfitPercent: 5, // INCREASED: 5% take profit (was 2%) for better risk-reward ratio
-  tradingPairs: ["BTC", "ETH", "SOL", "AVAX", "ARB"],
-  minConfidence: 0.75, // INCREASED: 75% minimum AI confidence to trade (was 0.65)
+  maxPositions: 2,
+  positionSizePercent: 3, // % of account value per position
+  defaultLeverage: 3,
+  stopLossPercent: 1.5,
+  takeProfitPercent: 3,
+  tradingPairs: ["BTC", "ETH"],
+  minConfidence: 0.7, // Minimum AI confidence to trade
 };
 
 let config = { ...DEFAULT_CONFIG };
 let isRunning = false;
 let tradingInterval: NodeJS.Timeout | null = null;
+let healthCheckInterval: NodeJS.Timeout | null = null;
 let lastCycleLogTime = 0; // Track last time we logged cycle status
 let lastPositionLogTime: Record<string, number> = {}; // Track last position log per coin
+
+let cycleInProgress = false;
+let consecutiveCycleFailures = 0;
+
+let lastInitParams: { privateKey: string; useMainnet: boolean } | null = null;
+let reconnectInProgress = false;
+let reconnectBackoffMs = 2000;
+let lastReconnectAttemptMs = 0;
 
 // Trade tracking
 interface LiveTrade {
@@ -81,108 +89,7 @@ const tradeHistory: Array<{
   exitTime: Date;
   pnl: number;
   pnlPercent: number;
-  exitReason: string; // NEW: Track why position was exited
-  slippagePercent: number; // NEW: Track actual slippage vs expected
 }> = [];
-
-// Trade journal for detailed logging
-interface TradeJournalEntry {
-  timestamp: Date;
-  coin: string;
-  action: "entry" | "exit" | "sl_hit" | "tp_hit" | "manual_close";
-  price: number;
-  size: number;
-  reason: string;
-  pnl?: number;
-  pnlPercent?: number;
-  confidence?: number;
-}
-
-const tradeJournal: TradeJournalEntry[] = [];
-
-/**
- * Log trade action to journal for analysis
- */
-function logTradeJournal(entry: TradeJournalEntry): void {
-  tradeJournal.push(entry);
-  const timestamp = entry.timestamp.toISOString();
-  console.log(`[TradeJournal] ${timestamp} | ${entry.coin} ${entry.action.toUpperCase()} @ $${entry.price.toFixed(2)} | ${entry.reason}`);
-}
-
-/**
- * Get trade journal for analysis
- */
-export function getTradeJournal(limit: number = 100): TradeJournalEntry[] {
-  return tradeJournal.slice(-limit);
-}
-
-/**
- * Export trade journal to JSON for external analysis
- */
-export function exportTradeJournal(): string {
-  return JSON.stringify(tradeJournal, null, 2);
-}
-
-// Risk management tracking
-let sessionStartBalance = 0;
-let consecutiveLosses = 0;
-let dailyLossAmount = 0;
-let lastDailyResetTime = Date.now();
-
-/**
- * Calculate Kelly Criterion position size
- * Formula: (bp - q) / b, where:
- * b = win/loss ratio
- * p = win probability
- * q = loss probability (1 - p)
- */
-function calculateKellySizing(
-  accountBalance: number,
-  winRate: number,
-  avgWinPercent: number,
-  avgLossPercent: number
-): number {
-  // Clamp win rate to realistic values (0.35 - 0.65)
-  winRate = Math.max(0.35, Math.min(0.65, winRate));
-  
-  const b = avgWinPercent / avgLossPercent; // Win/loss ratio
-  const p = winRate;
-  const q = 1 - winRate;
-  
-  let kellySizing = (b * p - q) / b;
-  
-  // Safety: never risk more than 2% per trade, never less than 0.5%
-  kellySizing = Math.max(0.005, Math.min(0.02, kellySizing));
-  
-  return kellySizing * 100; // Convert to percentage
-}
-
-/**
- * Check if we should stop trading due to daily loss limit
- */
-function shouldStopTrading(currentBalance: number): boolean {
-  const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-  
-  // Reset daily loss counter every 24 hours
-  if (now - lastDailyResetTime > dayMs) {
-    dailyLossAmount = 0;
-    lastDailyResetTime = now;
-  }
-  
-  const dayLossPct = (dailyLossAmount / sessionStartBalance) * 100;
-  if (dayLossPct > MAX_DAILY_LOSS_PERCENT) {
-    console.log(`[HyperliquidEngine] ⛔ DAILY LOSS LIMIT REACHED: ${dayLossPct.toFixed(2)}% (max: ${MAX_DAILY_LOSS_PERCENT}%)`);
-    return true;
-  }
-  
-  if (consecutiveLosses >= MAX_CONSECUTIVE_LOSSES) {
-    console.log(`[HyperliquidEngine] ⛔ CONSECUTIVE LOSSES LIMIT: ${consecutiveLosses} (max: ${MAX_CONSECUTIVE_LOSSES})`);
-    return true;
-  }
-  
-  return false;
-}
 
 /**
  * Initialize the Hyperliquid trading engine
@@ -193,6 +100,7 @@ export function initializeTradingEngine(
   customConfig?: Partial<TradingConfig>
 ): boolean {
   // Initialize Hyperliquid connection for LIVE TRADING
+  lastInitParams = { privateKey, useMainnet };
   const connected = initializeHyperliquid({ privateKey, useMainnet });
   
   if (!connected) {
@@ -215,49 +123,101 @@ export function initializeTradingEngine(
 
   console.log("[HyperliquidEngine] Trading engine initialized");
   console.log(`[HyperliquidEngine] Config: ${JSON.stringify(config)}`);
-  console.log(`[HyperliquidEngine] Risk Management: Max Leverage ${config.defaultLeverage}x, Max Consecutive Losses: ${MAX_CONSECUTIVE_LOSSES}, Max Daily Loss: ${MAX_DAILY_LOSS_PERCENT}%`);
   
   return true;
+}
+
+async function ensureConnected(reason: string): Promise<boolean> {
+  const status = getConnectionStatus();
+  if (status.connected) return true;
+
+  if (!lastInitParams) {
+    console.error(`[HyperliquidEngine] Not connected and cannot reconnect (missing init params). Reason: ${reason}`);
+    return false;
+  }
+
+  if (reconnectInProgress) return false;
+
+  const now = Date.now();
+  if (now - lastReconnectAttemptMs < reconnectBackoffMs) {
+    return false;
+  }
+
+  reconnectInProgress = true;
+  lastReconnectAttemptMs = now;
+  try {
+    console.warn(`[HyperliquidEngine] Connection down; attempting reconnect (${reason})...`);
+    const ok = initializeHyperliquid({
+      privateKey: lastInitParams.privateKey,
+      useMainnet: lastInitParams.useMainnet,
+    });
+    const newStatus = getConnectionStatus();
+    if (ok && newStatus.connected) {
+      console.log(`[HyperliquidEngine] Reconnected to ${newStatus.network.toUpperCase()}`);
+      reconnectBackoffMs = 2000;
+      return true;
+    }
+
+    reconnectBackoffMs = Math.min(60000, Math.max(2000, reconnectBackoffMs * 2));
+    console.error(`[HyperliquidEngine] Reconnect failed; next attempt in ${Math.round(reconnectBackoffMs / 1000)}s`);
+    return false;
+  } finally {
+    reconnectInProgress = false;
+  }
 }
 
 /**
  * Start automated trading
  */
-export async function startTrading(): Promise<void> {
+export function startTrading(): void {
   if (isRunning) {
     console.log("[HyperliquidEngine] Already running");
     return;
   }
 
+  // Start even if currently disconnected; background health checks will reconnect.
   const status = getConnectionStatus();
   if (!status.connected) {
-    console.error("[HyperliquidEngine] Not connected to Hyperliquid");
-    return;
-  }
-
-  // Get starting balance for risk tracking
-  const accountState = await getAccountState();
-  if (accountState) {
-    sessionStartBalance = accountState.marginSummary.accountValue;
-    console.log(`[HyperliquidEngine] 💰 Session starting balance: $${sessionStartBalance.toFixed(2)}`);
+    console.warn("[HyperliquidEngine] Not connected to Hyperliquid yet; will attempt reconnect in background");
   }
 
   isRunning = true;
-  consecutiveLosses = 0;
-  dailyLossAmount = 0;
   console.log("[HyperliquidEngine] Starting automated trading...");
 
-  // Run trading cycle every 15 seconds (was 5s - reduced over-trading and API rate issues)
+  // Run trading cycle every 5 seconds (reduced from 10s for faster trading)
   tradingInterval = setInterval(async () => {
+    if (!isRunning) return;
+    if (cycleInProgress) return;
+    cycleInProgress = true;
     try {
       await executeTradingCycle();
     } catch (error) {
       console.error("[HyperliquidEngine] Trading cycle error:", error);
+    } finally {
+      cycleInProgress = false;
     }
-  }, 15000); // 15 seconds to avoid excessive over-trading and API rate limits
+  }, 5000); // 5 seconds for quicker trade execution
+
+  // Lightweight health check: keep connection alive / auto-reconnect
+  healthCheckInterval = setInterval(async () => {
+    if (!isRunning) return;
+    try {
+      await ensureConnected("health_check");
+    } catch {
+      // swallow
+    }
+  }, 15000);
 
   // Run immediately
-  executeTradingCycle();
+  (async () => {
+    if (cycleInProgress) return;
+    cycleInProgress = true;
+    try {
+      await executeTradingCycle();
+    } finally {
+      cycleInProgress = false;
+    }
+  })();
 }
 
 /**
@@ -271,6 +231,11 @@ export function stopTrading(): void {
     clearInterval(tradingInterval);
     tradingInterval = null;
   }
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+  cycleInProgress = false;
 
   console.log("[HyperliquidEngine] Trading stopped");
 }
@@ -282,10 +247,17 @@ async function executeTradingCycle(): Promise<void> {
   if (!isRunning) return;
 
   try {
+    const connected = await ensureConnected("cycle");
+    if (!connected) {
+      consecutiveCycleFailures++;
+      return;
+    }
+
     // Get current prices
     const prices = await getAllPrices();
     if (Object.keys(prices).length === 0) {
       console.warn("[HyperliquidEngine] No prices available");
+      consecutiveCycleFailures++;
       return;
     }
 
@@ -293,8 +265,11 @@ async function executeTradingCycle(): Promise<void> {
     const accountState = await getAccountState();
     if (!accountState) {
       console.warn("[HyperliquidEngine] Could not get account state");
+      consecutiveCycleFailures++;
       return;
     }
+
+    consecutiveCycleFailures = 0;
 
     // Log cycle execution (every 60 seconds)
     const now = Date.now();
@@ -323,6 +298,10 @@ async function executeTradingCycle(): Promise<void> {
 
   } catch (error) {
     console.error("[HyperliquidEngine] Cycle error:", error);
+    consecutiveCycleFailures++;
+    if (consecutiveCycleFailures >= 3) {
+      await ensureConnected("consecutive_cycle_failures");
+    }
   }
 }
 
@@ -371,6 +350,7 @@ async function syncPositions(positions: Position[]): Promise<void> {
     const position = positions.find(p => p.coin === coin);
     if (!position || position.size === 0) {
       // Position closed - record in history
+      console.log(`[HyperliquidEngine] 📋 Position ${coin} no longer exists - recording exit`);
       const prices = await getAllPrices();
       const exitPrice = prices[coin] || trade.entryPrice;
       const pnl = trade.side === "long"
@@ -378,43 +358,7 @@ async function syncPositions(positions: Position[]): Promise<void> {
         : (trade.entryPrice - exitPrice) * trade.size;
       const pnlPercent = (pnl / (trade.entryPrice * trade.size)) * 100;
 
-      // Determine exit reason
-      let exitReason = "unknown";
-      if (exitPrice <= trade.stopLoss || exitPrice >= trade.stopLoss) {
-        exitReason = "stop_loss_hit";
-      } else if (exitPrice >= trade.takeProfit || exitPrice <= trade.takeProfit) {
-        exitReason = "take_profit_hit";
-      } else {
-        exitReason = "manual_or_forced_close";
-      }
-
-      // Calculate slippage
-      const expectedProfit = trade.side === "long"
-        ? (trade.takeProfit - trade.entryPrice) * trade.size
-        : (trade.entryPrice - trade.takeProfit) * trade.size;
-      const slippagePercent = expectedProfit > 0 ? ((expectedProfit - pnl) / expectedProfit) * 100 : 0;
-
-      console.log(`[HyperliquidEngine] 💰 ${coin} closed: ${pnl >= 0 ? 'PROFIT' : 'LOSS'} $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%) | Slippage: ${slippagePercent.toFixed(2)}%`);
-
-      // Track consecutive losses for risk management
-      if (pnl < 0) {
-        consecutiveLosses++;
-        dailyLossAmount += Math.abs(pnl);
-      } else {
-        consecutiveLosses = 0; // Reset on winning trade
-      }
-
-      // Log to trade journal
-      logTradeJournal({
-        timestamp: new Date(),
-        coin,
-        action: exitReason === "stop_loss_hit" ? "sl_hit" : exitReason === "take_profit_hit" ? "tp_hit" : "manual_close",
-        price: exitPrice,
-        size: trade.size,
-        reason: exitReason,
-        pnl,
-        pnlPercent,
-      });
+      console.log(`[HyperliquidEngine] 💰 ${coin} closed: ${pnl >= 0 ? 'PROFIT' : 'LOSS'} $${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`);
 
       tradeHistory.push({
         trade,
@@ -422,8 +366,6 @@ async function syncPositions(positions: Position[]): Promise<void> {
         exitTime: new Date(),
         pnl,
         pnlPercent,
-        exitReason,
-        slippagePercent,
       });
 
       // Learn from this trade
@@ -588,48 +530,36 @@ async function lookForEntries(
     try {
       // Set leverage
       await setLeverage(coin, config.defaultLeverage);
+      console.log(`[HyperliquidEngine]   ✓ Leverage set to ${config.defaultLeverage}x`);
       
       const result = await placeMarketOrder(coin, side, size);
       
       if (result.success) {
         const entryPrice = result.avgPrice || currentPrice;
         
-        // Check for slippage
-        const slippagePercent = Math.abs((entryPrice - currentPrice) / currentPrice) * 100;
-        if (slippagePercent > 0.5) {
-          console.warn(`[HyperliquidEngine]   ⚠️  HIGH SLIPPAGE: ${slippagePercent.toFixed(3)}% (${Math.abs(entryPrice - currentPrice).toFixed(2)} per unit)`);
-        }
-        
         // Calculate stop loss and take profit
         const stopLoss = side === "buy"
           ? entryPrice * (1 - config.stopLossPercent / 100)
           : entryPrice * (1 + config.stopLossPercent / 100);
+        
         const takeProfit = side === "buy"
           ? entryPrice * (1 + config.takeProfitPercent / 100)
           : entryPrice * (1 - config.takeProfitPercent / 100);
 
         console.log(`[HyperliquidEngine]   ✓ Market order filled at $${entryPrice.toFixed(2)}`);
 
-        // Place stop loss order (guaranteed stop to prevent liquidation)
+        // Place stop loss order
         try {
-          const slResult = await placeStopLoss(coin, side === "buy" ? "sell" : "buy", size, stopLoss);
-          if (slResult.success) {
-            console.log(`[HyperliquidEngine]   ✓ Stop loss GUARANTEED at $${stopLoss.toFixed(2)} (${config.stopLossPercent}%)`);
-          } else {
-            console.warn(`[HyperliquidEngine]   ⚠️  Stop loss order failed: ${slResult.error}, will use manual monitoring`);
-          }
+          await placeStopLoss(coin, side === "buy" ? "sell" : "buy", size, stopLoss);
+          console.log(`[HyperliquidEngine]   ✓ Stop loss placed at $${stopLoss.toFixed(2)} (${config.stopLossPercent}%)`);
         } catch (error) {
           console.error(`[HyperliquidEngine]   ✗ Failed to place stop loss:`, error);
         }
         
         // Place take profit order
         try {
-          const tpResult = await placeTakeProfit(coin, side === "buy" ? "sell" : "buy", size, takeProfit);
-          if (tpResult.success) {
-            console.log(`[HyperliquidEngine]   ✓ Take profit placed at $${takeProfit.toFixed(2)} (${config.takeProfitPercent}%)`);
-          } else {
-            console.warn(`[HyperliquidEngine]   ⚠️  Take profit order failed: ${tpResult.error}`);
-          }
+          await placeTakeProfit(coin, side === "buy" ? "sell" : "buy", size, takeProfit);
+          console.log(`[HyperliquidEngine]   ✓ Take profit placed at $${takeProfit.toFixed(2)} (${config.takeProfitPercent}%)`);
         } catch (error) {
           console.error(`[HyperliquidEngine]   ✗ Failed to place take profit:`, error);
         }
@@ -648,20 +578,8 @@ async function lookForEntries(
         };
         
         activeTrades.set(coin, trade);
-        
-        // Log entry to journal
-        logTradeJournal({
-          timestamp: new Date(),
-          coin,
-          action: "entry",
-          price: entryPrice,
-          size: result.filledSize || size,
-          reason: signal.reasons?.join(", ") || "AI signal",
-          confidence: signal.confidence,
-        });
-        
         console.log(`[HyperliquidEngine] ✅ TRADE OPENED: ${side.toUpperCase()} ${coin} at $${entryPrice.toFixed(2)} | SL: $${stopLoss.toFixed(2)} | TP: $${takeProfit.toFixed(2)}`);
-        console.log(`[HyperliquidEngine]   Confidence: ${signal.confidence.toFixed(1)}% | Slippage: ${slippagePercent.toFixed(3)}%`);
+        console.log(`[HyperliquidEngine]   Reasons: ${signal.reasons.join(', ')}`);
       } else {
         console.error(`[HyperliquidEngine] ✗ Failed to open ${coin} position: ${result.error || 'Unknown error'}`);
         // Retry once

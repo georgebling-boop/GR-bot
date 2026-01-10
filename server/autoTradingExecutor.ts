@@ -86,7 +86,7 @@ export function executeAutoTrade(state: SimulationState): SimulationState {
     const shouldOpenTrade = Math.random() > 0.6; // 40% chance to open trade
 
     if (shouldOpenTrade) {
-      const cryptos = ["BTC", "ETH", "ADA", "SOL", "XRP"];
+      const cryptos = ["BTC", "ETH"];
       const randomCrypto = cryptos[Math.floor(Math.random() * cryptos.length)];
 
       // Calculate position size based on risk

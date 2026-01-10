@@ -14,12 +14,8 @@ const COIN_PROFILES: Record<string, {
   category: "major" | "altcoin" | "meme";
   recommendedAllocation: number; // percentage
 }> = {
-  BTC: { name: "Bitcoin", riskLevel: "low", category: "major", recommendedAllocation: 40 },
-  ETH: { name: "Ethereum", riskLevel: "low", category: "major", recommendedAllocation: 30 },
-  SOL: { name: "Solana", riskLevel: "medium", category: "altcoin", recommendedAllocation: 10 },
-  ADA: { name: "Cardano", riskLevel: "medium", category: "altcoin", recommendedAllocation: 8 },
-  XRP: { name: "Ripple", riskLevel: "medium", category: "altcoin", recommendedAllocation: 7 },
-  DOGE: { name: "Dogecoin", riskLevel: "high", category: "meme", recommendedAllocation: 5 },
+  BTC: { name: "Bitcoin", riskLevel: "low", category: "major", recommendedAllocation: 60 },
+  ETH: { name: "Ethereum", riskLevel: "low", category: "major", recommendedAllocation: 40 },
 };
 
 interface PortfolioHolding {

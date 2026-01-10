@@ -175,15 +175,42 @@ async function autoStartTradingBot() {
  */
 function startContinuousTradingLoop() {
   const TRADING_INTERVAL = 5000; // 5 seconds (faster cycle for quicker trades)
+  let cycleInProgress = false;
+  let lastReconnectAttemptMs = 0;
   
   setInterval(async () => {
     try {
       const session = getSession();
       if (session?.isRunning) {
+        if (cycleInProgress) return;
+        cycleInProgress = true;
+
+        // Keep Hyperliquid connected for real orders (non-blocking; scalper can paper-trade if needed)
+        const status = getConnectionStatus();
+        if (!status.connected) {
+          const now = Date.now();
+          if (now - lastReconnectAttemptMs > 30000) {
+            lastReconnectAttemptMs = now;
+            try {
+              const savedConnection = await getActiveHyperliquidConnection();
+              if (savedConnection) {
+                initializeHyperliquid({
+                  privateKey: savedConnection.privateKey,
+                  useMainnet: savedConnection.useMainnet,
+                });
+              }
+            } catch {
+              // swallow
+            }
+          }
+        }
+
         await executeTradingCycle();
       }
     } catch (error) {
       console.error('[TradingLoop] Error in trading cycle:', error);
+    } finally {
+      cycleInProgress = false;
     }
   }, TRADING_INTERVAL);
   

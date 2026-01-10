@@ -1,0 +1,17 @@
+Tailscale quick steps
+
+1) Install:
+   winget install --id Tailscale.Tailscale -e
+
+2) Login/enable:
+   tailscale up
+
+3) Get this PC's Tailscale IP:
+   tailscale ip -4
+
+4) From your phone/laptop (logged into the same Tailscale account), open:
+   http://<tailscale-ip>:3000/
+
+Notes:
+- This is private access (not public internet), so VPN/filters usually don't block it.
+- You may still need Windows Firewall rule allowing inbound TCP 3000 on Private profile.

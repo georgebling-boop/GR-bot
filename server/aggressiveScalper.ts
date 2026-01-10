@@ -16,6 +16,7 @@ import {
   type MarketState,
   type IndicatorSnapshot,
 } from "./continuousLearningAI";
+import { fetchCryptoPrices, type CryptoPrice } from "./marketData";
 import { 
   getAllPrices as getHyperliquidPrices, 
   getConnectionStatus,
@@ -98,6 +99,27 @@ let lastHyperliquidFetch = 0;
 const PRICE_CACHE_TTL = 2000; // 2 seconds
 let lastHyperliquidPriceLog = 0;
 
+// Cache for CoinGecko spot prices (fallback when Hyperliquid isn't connected)
+let spotPriceCache: Record<string, CryptoPrice> = {};
+let lastSpotFetch = 0;
+const SPOT_CACHE_TTL = 15000; // 15 seconds (CoinGecko has its own caching too)
+
+async function updateSpotPrices(): Promise<void> {
+  const now = Date.now();
+  if (now - lastSpotFetch < SPOT_CACHE_TTL) return;
+
+  try {
+    const coins = await fetchCryptoPrices(["bitcoin", "ethereum"]);
+    for (const coin of coins) {
+      const sym = coin.symbol.toUpperCase();
+      spotPriceCache[sym] = coin;
+    }
+    lastSpotFetch = now;
+  } catch (error) {
+    console.error("[Scalper] Failed to fetch CoinGecko spot prices:", error);
+  }
+}
+
 /**
  * Fetch prices from Hyperliquid and update cache
  */
@@ -135,6 +157,10 @@ function getRealPrice(symbol: string): number {
   if (hlSymbol && hyperliquidPriceCache[hlSymbol]) {
     return hyperliquidPriceCache[hlSymbol];
   }
+  const spot = spotPriceCache[symbol]?.current_price;
+  if (typeof spot === "number" && spot > 0) {
+    return spot;
+  }
   return CRYPTO_BASE_PRICES[symbol] || 100;
 }
 
@@ -168,32 +194,20 @@ function initializePriceHistory(): void {
  * Get live price - uses Hyperliquid real prices when connected, otherwise simulated
  */
 export function getLivePrice(symbol: string): PriceData {
-  // Try to get real price from Hyperliquid
-  const realPrice = getRealPrice(symbol);
   const basePrice = CRYPTO_BASE_PRICES[symbol] || 100;
-  
-  // Use real price if available, otherwise use base price
-  const currentPrice = realPrice !== basePrice ? realPrice : basePrice;
-  
-  // Add price to history
-  if (!priceHistory[symbol]) {
-    priceHistory[symbol] = [currentPrice];
-  }
-  
-  // If we have a real price, use it directly
   const status = getConnectionStatus();
-  let newPrice: number;
-  
-  if (status.connected && hyperliquidPriceCache[HYPERLIQUID_SYMBOL_MAP[symbol]]) {
-    // Use real Hyperliquid price
-    newPrice = realPrice;
-  } else {
-    // Fallback to simulated movement
-    const lastPrice = priceHistory[symbol][priceHistory[symbol].length - 1] || basePrice;
-    const volatility = 0.003;
-    const trend = Math.random() > 0.5 ? 1 : -1;
-    const change = lastPrice * volatility * trend * (0.5 + Math.random());
-    newPrice = Math.max(lastPrice * 0.95, Math.min(lastPrice * 1.05, lastPrice + change));
+  const hlSymbol = HYPERLIQUID_SYMBOL_MAP[symbol];
+  const hasHlPrice = !!(status.connected && hlSymbol && hyperliquidPriceCache[hlSymbol]);
+  const spot = spotPriceCache[symbol];
+
+  // Prefer Hyperliquid (mark/mid) when connected; otherwise use CoinGecko spot.
+  // Avoid simulated/random prices for the UI.
+  const newPrice = hasHlPrice
+    ? (hyperliquidPriceCache[hlSymbol!] || basePrice)
+    : (spot?.current_price || basePrice);
+
+  if (!priceHistory[symbol]) {
+    priceHistory[symbol] = [];
   }
   
   // Keep last 100 prices
@@ -203,10 +217,11 @@ export function getLivePrice(symbol: string): PriceData {
   }
   
   const prices = priceHistory[symbol];
-  const high24h = Math.max(...prices.slice(-24));
-  const low24h = Math.min(...prices.slice(-24));
-  const firstPrice = prices[0] || newPrice;
-  const change24h = firstPrice > 0 ? ((newPrice - firstPrice) / firstPrice) * 100 : 0;
+  const high24h = typeof spot?.high_24h === "number" && spot.high_24h > 0 ? spot.high_24h : Math.max(...prices.slice(-24));
+  const low24h = typeof spot?.low_24h === "number" && spot.low_24h > 0 ? spot.low_24h : Math.min(...prices.slice(-24));
+  const change24h = typeof spot?.price_change_percentage_24h === "number"
+    ? spot.price_change_percentage_24h
+    : (prices[0] ? ((newPrice - prices[0]) / prices[0]) * 100 : 0);
   
   return {
     symbol,
@@ -214,7 +229,9 @@ export function getLivePrice(symbol: string): PriceData {
     change24h,
     high24h,
     low24h,
-    volume: basePrice * 1000000 * (0.8 + Math.random() * 0.4),
+    volume: typeof spot?.total_volume === "number" && spot.total_volume > 0
+      ? spot.total_volume
+      : basePrice * 1000000,
   };
 }
 
@@ -540,6 +557,9 @@ export async function executeTradingCycle(): Promise<{
   const actions: string[] = [];
   const newTrades: ScalpingTrade[] = [];
   const closedTradesThisCycle: ScalpingTrade[] = [];
+
+  // Refresh prices at the start of each cycle (cached/rate-limited internally)
+  await Promise.allSettled([updateHyperliquidPrices(), updateSpotPrices()]);
   
   // Calculate current drawdown
   const currentEquity = session.currentBalance + session.openTrades.reduce((sum, t) => {
@@ -770,7 +790,7 @@ export function resetSession(): ScalpingSession {
  */
 export async function getAllPricesAsync(): Promise<PriceData[]> {
   // Update Hyperliquid prices cache
-  await updateHyperliquidPrices();
+  await Promise.allSettled([updateHyperliquidPrices(), updateSpotPrices()]);
   return Object.keys(CRYPTO_BASE_PRICES).map(symbol => getLivePrice(symbol));
 }
 
@@ -780,6 +800,7 @@ export async function getAllPricesAsync(): Promise<PriceData[]> {
 export function getAllPrices(): PriceData[] {
   // Trigger async update in background
   updateHyperliquidPrices().catch(console.error);
+  updateSpotPrices().catch(console.error);
   return Object.keys(CRYPTO_BASE_PRICES).map(symbol => getLivePrice(symbol));
 }
 

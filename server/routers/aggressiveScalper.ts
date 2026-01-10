@@ -9,6 +9,7 @@ import {
   executeTradingCycle,
   resetSession,
   getAllPrices,
+  getAllPricesAsync,
   runBacktest,
 } from "../aggressiveScalper";
 
@@ -64,7 +65,7 @@ export const aggressiveScalperRouter = router({
 
   // Get all live prices
   getPrices: publicProcedure.query(async () => {
-    const prices = getAllPrices();
+    const prices = await getAllPricesAsync();
     return { prices };
   }),
 

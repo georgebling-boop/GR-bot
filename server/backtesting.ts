@@ -1,6 +1,7 @@
 /**
  * Backtesting Module
  * Test AI strategies against historical data to validate improvements
+ * UPDATED: Uses more realistic market conditions and conservative estimates
  */
 
 import { getDb } from "./db";
@@ -21,6 +22,8 @@ export interface BacktestConfig {
   positionSizePercent: number;
   takeProfitPercent: number;
   stopLossPercent: number;
+  leverage?: number; // Added for realistic leverage testing
+  slippagePercent?: number; // Add slippage costs
 }
 
 export interface BacktestTrade {
@@ -32,6 +35,7 @@ export interface BacktestTrade {
   profitPercent: number;
   isWin: boolean;
   reason: string;
+  slippageCost?: number; // Track slippage impact
 }
 
 export interface BacktestResult {

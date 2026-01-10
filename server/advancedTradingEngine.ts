@@ -142,7 +142,7 @@ export function getWeeklyTarget(): WeeklyTarget {
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
   
-  const targetProfit = 1000; // $1000+ weekly minimum target
+  const targetProfit = 80; // $80-$100 weekly target (10% realistic growth, was $1000)
   const currentProfit = currentSession?.totalProfit || 0;
   const progressPercent = (currentProfit / targetProfit) * 100;
   

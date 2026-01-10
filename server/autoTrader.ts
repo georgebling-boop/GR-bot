@@ -26,6 +26,7 @@ export interface TradeSignal {
 
 /**
  * Generate trading signals based on different strategies
+ * ENHANCED: Now requires multi-indicator confirmation for better accuracy
  */
 export function generateTradeSignals(
   prices: any[],
@@ -44,7 +45,51 @@ export function generateTradeSignals(
 }
 
 /**
+ * HELPER: Analyze market condition with multiple confirmations
+ * Requires 2+ indicators to align before giving high-confidence signal
+ */
+function getMultiIndicatorConfirmation(price: any): {
+  momentum: number;
+  meanReversion: number;
+  volatility: number;
+  alignedSignals: number;
+} {
+  const symbol = price.symbol;
+  const currentPrice = price.current_price;
+  const change24h = price.price_change_percentage_24h;
+  const high24h = price.high_24h;
+  const low24h = price.low_24h;
+  const volume = price.total_volume || 0;
+
+  // Momentum score (-1 to 1)
+  const momentumScore = Math.max(-1, Math.min(1, change24h / 5)); // Normalize to -1 to 1
+
+  // Mean reversion score (0 to 1)
+  const range = high24h - low24h;
+  const position = range > 0 ? (currentPrice - low24h) / range : 0.5;
+  const meanReversionScore = position < 0.3 ? 1 : position > 0.7 ? -1 : 0;
+
+  // Volatility score (0 to 1)
+  const volatility = range > 0 ? (range / currentPrice) * 100 : 0;
+  const volatilityScore = volatility > 5 ? 1 : volatility > 2 ? 0.5 : 0;
+
+  // Count aligned signals
+  let alignedSignals = 0;
+  if (momentumScore > 0.3) alignedSignals++;
+  if (meanReversionScore > 0.3) alignedSignals++;
+  if (volatilityScore > 0.3) alignedSignals++;
+
+  return {
+    momentum: momentumScore,
+    meanReversion: meanReversionScore,
+    volatility: volatilityScore,
+    alignedSignals,
+  };
+}
+
+/**
  * Generate signal for a specific strategy
+ * ENHANCED: Requires multi-indicator confluence for entry
  */
 function generateSignalForStrategy(price: any, strategy: string): TradeSignal | null {
   const symbol = price.symbol;
@@ -53,51 +98,54 @@ function generateSignalForStrategy(price: any, strategy: string): TradeSignal | 
   const high24h = price.high_24h;
   const low24h = price.low_24h;
 
+  // Get multi-indicator analysis
+  const indicators = getMultiIndicatorConfirmation(price);
+
   switch (strategy) {
     case "momentum": {
-      // Buy on positive momentum, sell on negative
-      if (change24h > 2) {
+      // Require positive momentum + volume or mean reversion confirmation
+      if (change24h > 2 && (indicators.alignedSignals >= 2 || indicators.volatility > 0.3)) {
         return {
           symbol: `${symbol}-USD`,
           action: "buy",
           strategy: "momentum",
-          confidence: Math.min(Math.abs(change24h) / 10, 1),
+          confidence: Math.min((Math.abs(change24h) / 10) * (0.5 + indicators.alignedSignals * 0.25), 1),
           entryPrice: currentPrice,
-          stopLoss: currentPrice * 0.95, // 5% stop loss
-          takeProfit: currentPrice * 1.1, // 10% take profit
-          reason: `Positive momentum: +${change24h.toFixed(2)}% in 24h`,
+          stopLoss: currentPrice * 0.975, // 2.5% stop loss (updated from 5%)
+          takeProfit: currentPrice * 1.05, // 5% take profit (updated from 10%)
+          reason: `Momentum confirmed by ${indicators.alignedSignals} indicators: +${change24h.toFixed(2)}%`,
         };
       }
       break;
     }
 
     case "mean-reversion": {
-      // Buy when price is near 24h low, sell when near high
+      // Buy when price is near 24h low WITH volatility confirmation
       const range = high24h - low24h;
-      const position = (currentPrice - low24h) / range;
+      const position = range > 0 ? (currentPrice - low24h) / range : 0.5;
 
-      if (position < 0.3) {
-        // Price near low - good buying opportunity
+      if (position < 0.3 && indicators.volatility > 0.3) {
+        // Price near low with high volatility - good buying opportunity
         return {
           symbol: `${symbol}-USD`,
           action: "buy",
           strategy: "mean-reversion",
-          confidence: 1 - position,
+          confidence: (1 - position) * (0.5 + indicators.volatility * 0.5),
           entryPrice: currentPrice,
           stopLoss: low24h * 0.98,
           takeProfit: (high24h + currentPrice) / 2,
-          reason: `Price near 24h low (${position.toFixed(2)}% of range)`,
+          reason: `Price at ${(position * 100).toFixed(0)}% of range + volatility confirmation`,
         };
       }
       break;
     }
 
     case "volatility": {
-      // Trade when volatility is high
+      // Trade when volatility is high AND momentum is present
       const range = high24h - low24h;
-      const volatility = (range / currentPrice) * 100;
+      const volatility = range > 0 ? (range / currentPrice) * 100 : 0;
 
-      if (volatility > 5) {
+      if (volatility > 5 && Math.abs(indicators.momentum) > 0.3) {
         const action = change24h > 0 ? "buy" : "sell";
         return {
           symbol: `${symbol}-USD`,
